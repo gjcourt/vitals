@@ -7,23 +7,21 @@ import (
 	"fmt"
 	"time"
 
-	_ "modernc.org/sqlite"
+	_ "github.com/lib/pq"
 )
 
 type DB struct {
 	sql *sql.DB
 }
 
-func Open(path string) (*DB, error) {
-	// modernc sqlite uses file: URLs; plain paths are also accepted.
-	s, err := sql.Open("sqlite", path)
+func Open(connStr string) (*DB, error) {
+	s, err := sql.Open("postgres", connStr)
 	if err != nil {
 		return nil, err
 	}
-	// SQLite is single-writer; keep pool small.
-	s.SetMaxOpenConns(1)
-	s.SetMaxIdleConns(1)
-	s.SetConnMaxLifetime(0)
+	s.SetMaxOpenConns(10)
+	s.SetMaxIdleConns(5)
+	s.SetConnMaxLifetime(5 * time.Minute)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -46,25 +44,23 @@ func (d *DB) Close() error {
 
 func (d *DB) migrate(ctx context.Context) error {
 	stmts := []string{
-		`PRAGMA journal_mode = WAL;`,
-		`PRAGMA foreign_keys = ON;`,
 		`CREATE TABLE IF NOT EXISTS weights (
-			day TEXT PRIMARY KEY, -- YYYY-MM-DD in local time
-			value REAL NOT NULL,
+			day TEXT PRIMARY KEY,
+			value DOUBLE PRECISION NOT NULL,
 			unit TEXT NOT NULL CHECK(unit IN ('kg','lb')),
-			created_at TEXT NOT NULL
+			created_at TIMESTAMPTZ NOT NULL
 		);`,
 		`CREATE TABLE IF NOT EXISTS weight_events (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			value REAL NOT NULL,
+			id BIGSERIAL PRIMARY KEY,
+			value DOUBLE PRECISION NOT NULL,
 			unit TEXT NOT NULL CHECK(unit IN ('kg','lb')),
-			created_at TEXT NOT NULL
+			created_at TIMESTAMPTZ NOT NULL
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_weight_events_created_at ON weight_events(created_at);`,
 		`CREATE TABLE IF NOT EXISTS water_events (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			delta_liters REAL NOT NULL,
-			created_at TEXT NOT NULL
+			id BIGSERIAL PRIMARY KEY,
+			delta_liters DOUBLE PRECISION NOT NULL,
+			created_at TIMESTAMPTZ NOT NULL
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_water_events_created_at ON water_events(created_at);`,
 	}
@@ -93,7 +89,7 @@ type WeightEntry struct {
 	ID        int64     `json:"id"`
 	Day       string    `json:"day"`
 	Value     float64   `json:"value"`
-	Unit      string    `json:"unit"` // kg|lb
+	Unit      string    `json:"unit"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
@@ -104,19 +100,17 @@ type WaterEvent struct {
 }
 
 func (d *DB) AddWeightEvent(ctx context.Context, value float64, unit string, createdAt time.Time) (int64, error) {
-	res, err := d.sql.ExecContext(ctx, `INSERT INTO weight_events(value, unit, created_at) VALUES(?, ?, ?);`, value, unit, createdAt.UTC().Format(time.RFC3339Nano))
-	if err != nil {
-		return 0, err
-	}
-	id, err := res.LastInsertId()
+	var id int64
+	err := d.sql.QueryRowContext(ctx,
+		`INSERT INTO weight_events(value, unit, created_at) VALUES($1, $2, $3) RETURNING id;`,
+		value, unit, createdAt.UTC(),
+	).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
 	return id, nil
 }
 
-// DeleteLatestWeightEvent removes the most recent weight event (by created_at).
-// Returns (deleted, nil) if successful.
 func (d *DB) DeleteLatestWeightEvent(ctx context.Context) (bool, error) {
 	row := d.sql.QueryRowContext(ctx, `SELECT id FROM weight_events ORDER BY created_at DESC LIMIT 1;`)
 	var id int64
@@ -126,14 +120,13 @@ func (d *DB) DeleteLatestWeightEvent(ctx context.Context) (bool, error) {
 		}
 		return false, err
 	}
-	_, err := d.sql.ExecContext(ctx, `DELETE FROM weight_events WHERE id=?;`, id)
+	_, err := d.sql.ExecContext(ctx, `DELETE FROM weight_events WHERE id=$1;`, id)
 	if err != nil {
 		return false, err
 	}
 	return true, nil
 }
 
-// LatestWeightForLocalDay returns the most recently recorded weight for the given local day (YYYY-MM-DD).
 func (d *DB) LatestWeightForLocalDay(ctx context.Context, localDay string) (*WeightEntry, error) {
 	dayStartLocal, err := time.ParseInLocation("2006-01-02", localDay, time.Local)
 	if err != nil {
@@ -141,33 +134,25 @@ func (d *DB) LatestWeightForLocalDay(ctx context.Context, localDay string) (*Wei
 	}
 	dayEndLocal := dayStartLocal.Add(24 * time.Hour)
 
-	startUTC := dayStartLocal.UTC().Format(time.RFC3339Nano)
-	endUTC := dayEndLocal.UTC().Format(time.RFC3339Nano)
-
 	row := d.sql.QueryRowContext(ctx,
-		`SELECT id, value, unit, created_at FROM weight_events WHERE created_at >= ? AND created_at < ? ORDER BY created_at DESC LIMIT 1;`,
-		startUTC, endUTC,
+		`SELECT id, value, unit, created_at FROM weight_events WHERE created_at >= $1 AND created_at < $2 ORDER BY created_at DESC LIMIT 1;`,
+		dayStartLocal.UTC(), dayEndLocal.UTC(),
 	)
 
 	var e WeightEntry
-	var created string
-	if err := row.Scan(&e.ID, &e.Value, &e.Unit, &created); err != nil {
+	if err := row.Scan(&e.ID, &e.Value, &e.Unit, &e.CreatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	t, err := time.Parse(time.RFC3339Nano, created)
-	if err != nil {
-		return nil, err
-	}
-	e.CreatedAt = t
 	e.Day = localDay
 	return &e, nil
 }
 
 func (d *DB) ListRecentWeightEvents(ctx context.Context, limit int) ([]WeightEntry, error) {
-	rows, err := d.sql.QueryContext(ctx, `SELECT id, value, unit, created_at FROM weight_events ORDER BY created_at DESC LIMIT ?;`, limit)
+	rows, err := d.sql.QueryContext(ctx,
+		`SELECT id, value, unit, created_at FROM weight_events ORDER BY created_at DESC LIMIT $1;`, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -176,27 +161,21 @@ func (d *DB) ListRecentWeightEvents(ctx context.Context, limit int) ([]WeightEnt
 	out := make([]WeightEntry, 0, limit)
 	for rows.Next() {
 		var e WeightEntry
-		var created string
-		if err := rows.Scan(&e.ID, &e.Value, &e.Unit, &created); err != nil {
+		if err := rows.Scan(&e.ID, &e.Value, &e.Unit, &e.CreatedAt); err != nil {
 			return nil, err
 		}
-		t, err := time.Parse(time.RFC3339Nano, created)
-		if err != nil {
-			return nil, err
-		}
-		e.CreatedAt = t
-		e.Day = t.In(time.Local).Format("2006-01-02")
+		e.Day = e.CreatedAt.In(time.Local).Format("2006-01-02")
 		out = append(out, e)
 	}
 	return out, rows.Err()
 }
 
 func (d *DB) AddWaterEvent(ctx context.Context, deltaLiters float64, createdAt time.Time) (int64, error) {
-	res, err := d.sql.ExecContext(ctx, `INSERT INTO water_events(delta_liters, created_at) VALUES(?, ?);`, deltaLiters, createdAt.UTC().Format(time.RFC3339Nano))
-	if err != nil {
-		return 0, err
-	}
-	id, err := res.LastInsertId()
+	var id int64
+	err := d.sql.QueryRowContext(ctx,
+		`INSERT INTO water_events(delta_liters, created_at) VALUES($1, $2) RETURNING id;`,
+		deltaLiters, createdAt.UTC(),
+	).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
@@ -204,12 +183,13 @@ func (d *DB) AddWaterEvent(ctx context.Context, deltaLiters float64, createdAt t
 }
 
 func (d *DB) DeleteWaterEvent(ctx context.Context, id int64) error {
-	_, err := d.sql.ExecContext(ctx, `DELETE FROM water_events WHERE id=?;`, id)
+	_, err := d.sql.ExecContext(ctx, `DELETE FROM water_events WHERE id=$1;`, id)
 	return err
 }
 
 func (d *DB) ListRecentWaterEvents(ctx context.Context, limit int) ([]WaterEvent, error) {
-	rows, err := d.sql.QueryContext(ctx, `SELECT id, delta_liters, created_at FROM water_events ORDER BY created_at DESC LIMIT ?;`, limit)
+	rows, err := d.sql.QueryContext(ctx,
+		`SELECT id, delta_liters, created_at FROM water_events ORDER BY created_at DESC LIMIT $1;`, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -218,22 +198,14 @@ func (d *DB) ListRecentWaterEvents(ctx context.Context, limit int) ([]WaterEvent
 	out := make([]WaterEvent, 0, limit)
 	for rows.Next() {
 		var e WaterEvent
-		var created string
-		if err := rows.Scan(&e.ID, &e.DeltaLiters, &created); err != nil {
+		if err := rows.Scan(&e.ID, &e.DeltaLiters, &e.CreatedAt); err != nil {
 			return nil, err
 		}
-		t, err := time.Parse(time.RFC3339Nano, created)
-		if err != nil {
-			return nil, err
-		}
-		e.CreatedAt = t
 		out = append(out, e)
 	}
 	return out, rows.Err()
 }
 
-// WaterTotalForLocalDay returns the total water for the given local day (YYYY-MM-DD),
-// while timestamps are stored in UTC.
 func (d *DB) WaterTotalForLocalDay(ctx context.Context, localDay string) (float64, error) {
 	dayStartLocal, err := time.ParseInLocation("2006-01-02", localDay, time.Local)
 	if err != nil {
@@ -241,12 +213,9 @@ func (d *DB) WaterTotalForLocalDay(ctx context.Context, localDay string) (float6
 	}
 	dayEndLocal := dayStartLocal.Add(24 * time.Hour)
 
-	startUTC := dayStartLocal.UTC().Format(time.RFC3339Nano)
-	endUTC := dayEndLocal.UTC().Format(time.RFC3339Nano)
-
 	row := d.sql.QueryRowContext(ctx,
-		`SELECT COALESCE(SUM(delta_liters), 0) FROM water_events WHERE created_at >= ? AND created_at < ?;`,
-		startUTC, endUTC,
+		`SELECT COALESCE(SUM(delta_liters), 0) FROM water_events WHERE created_at >= $1 AND created_at < $2;`,
+		dayStartLocal.UTC(), dayEndLocal.UTC(),
 	)
 	var total float64
 	if err := row.Scan(&total); err != nil {
