@@ -1,41 +1,60 @@
-# Vitals tracker (Go + SQLite)
+# Biometrics
 
-A simple, mobile-friendly single-page web app for tracking:
-- Daily weight (one entry per day; kg/lb)
-- Water consumption (prominent increment button + optional decrement/undo)
+A simple, mobile-friendly web app for tracking daily weight and water intake.
+Built with Go, PostgreSQL, and vanilla JS.
 
-Data is stored with timestamps in a local SQLite database.
+## Architecture
 
-## Run
+The project follows **hexagonal (ports & adapters) architecture**:
 
-From the repo root:
-
-```bash
-go run ./cmd/server
+```
+cmd/biometrics/          ← entry point, wires everything together
+internal/
+  domain/                ← core: entities + port interfaces (zero external deps)
+  app/                   ← application services (business logic + validation)
+  adapter/
+    postgres/            ← driven adapter: implements domain repository ports
+    http/                ← driving adapter: HTTP handlers calling app services
+web/                     ← static frontend assets (HTML/CSS/JS)
 ```
 
-Then open:
-- http://localhost:8080
-
-## Configuration
-
-Environment variables:
-- `ADDR` (default `:8080`)
-- `DB_PATH` (default `biometrics.sqlite`)
-
-Example:
+## Build & Run
 
 ```bash
-ADDR=:8080 DB_PATH=./biometrics.sqlite go run ./cmd/server
+# Build
+go build ./...
+
+# Test
+go test ./...
+
+# Run locally
+DATABASE_URL="postgres://user:pass@localhost:5432/biometrics?sslmode=disable" \
+  go run ./cmd/biometrics
+
+# Docker
+docker build -t biometrics .
+docker run -e DATABASE_URL="..." -p 8080:8080 biometrics
 ```
 
-## API (quick)
+Then open http://localhost:8080
+
+## Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `DATABASE_URL` | *(required)* | PostgreSQL connection string |
+| `ADDR` | `:8080` | Listen address |
+| `WEB_DIR` | `web` | Path to static frontend assets |
+
+## API
 
 - `GET /api/health`
 - `GET /api/weight/today`
-- `PUT /api/weight/today` body: `{ "value": 75.4, "unit": "kg" }`
+- `PUT /api/weight/today` — body: `{ "value": 75.4, "unit": "kg" }`
 - `GET /api/weight/recent?limit=14`
+- `POST /api/weight/undo-last`
 - `GET /api/water/today`
-- `POST /api/water/event` body: `{ "deltaLiters": 0.25 }` (negative allowed)
+- `POST /api/water/event` — body: `{ "deltaLiters": 0.25 }`
 - `GET /api/water/recent?limit=20`
 - `POST /api/water/undo-last`
+- `GET /api/charts/daily?days=90&unit=lb`
