@@ -1,7 +1,6 @@
-package server
+package adapthttp
 
 import (
-	"errors"
 	"net/http"
 	"time"
 )
@@ -12,7 +11,7 @@ func (s *Server) handleWeightToday(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodGet:
-		entry, err := s.db.LatestWeightForLocalDay(ctx, today)
+		entry, err := s.weight.GetTodayWeight(ctx, today)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err)
 			return
@@ -28,19 +27,11 @@ func (s *Server) handleWeightToday(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
-		if body.Value <= 0 {
-			writeError(w, http.StatusBadRequest, errors.New("value must be > 0"))
+		entry, _, err := s.weight.RecordWeight(ctx, body.Value, body.Unit)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
 			return
 		}
-		if body.Unit != "kg" && body.Unit != "lb" {
-			writeError(w, http.StatusBadRequest, errors.New("unit must be \"kg\" or \"lb\""))
-			return
-		}
-		if _, err := s.db.AddWeightEvent(ctx, body.Value, body.Unit, time.Now()); err != nil {
-			writeError(w, http.StatusInternalServerError, err)
-			return
-		}
-		entry, _ := s.db.LatestWeightForLocalDay(ctx, today)
 		writeJSON(w, http.StatusOK, map[string]any{"today": today, "entry": entry})
 
 	default:
@@ -54,7 +45,7 @@ func (s *Server) handleWeightRecent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	limit := intQuery(r, "limit", 14)
-	items, err := s.db.ListRecentWeightEvents(r.Context(), limit)
+	items, err := s.weight.ListRecent(r.Context(), limit)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -67,13 +58,10 @@ func (s *Server) handleWeightUndoLast(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-
-	today := localDayString(time.Now())
-	deleted, err := s.db.DeleteLatestWeightEvent(r.Context())
+	deleted, entry, today, err := s.weight.UndoLast(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	entry, _ := s.db.LatestWeightForLocalDay(r.Context(), today)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "deleted": deleted, "today": today, "entry": entry})
 }

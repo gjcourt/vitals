@@ -1,7 +1,6 @@
-package server
+package adapthttp
 
 import (
-	"errors"
 	"net/http"
 	"time"
 )
@@ -12,7 +11,7 @@ func (s *Server) handleWaterToday(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	today := localDayString(time.Now())
-	total, err := s.db.WaterTotalForLocalDay(r.Context(), today)
+	total, err := s.water.GetTodayTotal(r.Context(), today)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -32,13 +31,9 @@ func (s *Server) handleWaterEvent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	if body.DeltaLiters == 0 || body.DeltaLiters < -10 || body.DeltaLiters > 10 {
-		writeError(w, http.StatusBadRequest, errors.New("deltaLiters must be non-zero and within [-10, 10]"))
-		return
-	}
-	id, err := s.db.AddWaterEvent(r.Context(), body.DeltaLiters, time.Now())
+	id, err := s.water.RecordEvent(r.Context(), body.DeltaLiters)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, http.StatusBadRequest, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"id": id})
@@ -50,7 +45,7 @@ func (s *Server) handleWaterRecent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	limit := intQuery(r, "limit", 20)
-	items, err := s.db.ListRecentWaterEvents(r.Context(), limit)
+	items, err := s.water.ListRecent(r.Context(), limit)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -63,18 +58,10 @@ func (s *Server) handleWaterUndoLast(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	items, err := s.db.ListRecentWaterEvents(r.Context(), 1)
+	undone, id, err := s.water.UndoLast(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	if len(items) == 0 {
-		writeJSON(w, http.StatusOK, map[string]any{"undone": false})
-		return
-	}
-	if err := s.db.DeleteWaterEvent(r.Context(), items[0].ID); err != nil {
-		writeError(w, http.StatusInternalServerError, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"undone": true, "id": items[0].ID})
+	writeJSON(w, http.StatusOK, map[string]any{"undone": undone, "id": id})
 }

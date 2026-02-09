@@ -6,8 +6,9 @@ import (
 	"net/http"
 	"os"
 
-	"biometrics/internal/db"
-	"biometrics/internal/server"
+	adapthttp "biometrics/internal/adapter/http"
+	"biometrics/internal/adapter/postgres"
+	"biometrics/internal/app"
 )
 
 func main() {
@@ -19,13 +20,17 @@ func main() {
 		log.Fatal("DATABASE_URL is required")
 	}
 
-	d, err := db.Open(connStr)
+	db, err := postgres.Open(connStr)
 	if err != nil {
 		log.Fatalf("db open: %v", err)
 	}
-	defer func() { _ = d.Close() }()
+	defer func() { _ = db.Close() }()
 
-	h := server.New(d, webDir).Handler()
+	weightSvc := app.NewWeightService(db)
+	waterSvc := app.NewWaterService(db)
+	chartsSvc := app.NewChartsService(db, db)
+
+	h := adapthttp.New(weightSvc, waterSvc, chartsSvc, webDir).Handler()
 	log.Printf("listening on %s", addr)
 	if err := http.ListenAndServe(addr, h); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)

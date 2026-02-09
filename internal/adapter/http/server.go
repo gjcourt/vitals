@@ -1,20 +1,26 @@
-package server
+package adapthttp
 
 import (
 	"net/http"
 
-	"biometrics/internal/db"
+	"biometrics/internal/app"
 )
 
+// Server is the driving HTTP adapter that routes requests to application
+// services.
 type Server struct {
-	db     *db.DB
+	weight *app.WeightService
+	water  *app.WaterService
+	charts *app.ChartsService
 	webDir string
 }
 
-func New(database *db.DB, webDir string) *Server {
-	return &Server{db: database, webDir: webDir}
+// New creates a Server wired to the given application services.
+func New(ws *app.WeightService, wa *app.WaterService, cs *app.ChartsService, webDir string) *Server {
+	return &Server{weight: ws, water: wa, charts: cs, webDir: webDir}
 }
 
+// Handler returns the root http.Handler for the application.
 func (s *Server) Handler() http.Handler {
 	api := http.NewServeMux()
 	api.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
