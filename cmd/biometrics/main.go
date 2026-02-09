@@ -26,11 +26,14 @@ func main() {
 	}
 	defer func() { _ = db.Close() }()
 
+	sessionRepo := postgres.NewSessionRepo(db)
+
 	weightSvc := app.NewWeightService(db)
 	waterSvc := app.NewWaterService(db)
 	chartsSvc := app.NewChartsService(db, db)
+	authSvc := app.NewAuthService(db, sessionRepo)
 
-	h := adapthttp.New(weightSvc, waterSvc, chartsSvc, webDir).Handler()
+	h := adapthttp.New(weightSvc, waterSvc, chartsSvc, authSvc, webDir).Handler()
 	log.Printf("listening on %s", addr)
 	if err := http.ListenAndServe(addr, h); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)

@@ -51,6 +51,9 @@ func (d *DB) migrate(ctx context.Context) error {
 		"CREATE INDEX IF NOT EXISTS idx_weight_events_created_at ON weight_events(created_at);",
 		"CREATE TABLE IF NOT EXISTS water_events (id BIGSERIAL PRIMARY KEY, delta_liters DOUBLE PRECISION NOT NULL, created_at TIMESTAMPTZ NOT NULL);",
 		"CREATE INDEX IF NOT EXISTS idx_water_events_created_at ON water_events(created_at);",
+		"CREATE TABLE IF NOT EXISTS users (id BIGSERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL);",
+		"CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at TIMESTAMPTZ NOT NULL, created_at TIMESTAMPTZ NOT NULL);",
+		"CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);",
 	}
 
 	for _, stmt := range stmts {

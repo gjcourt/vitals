@@ -9,15 +9,23 @@ import (
 // Server is the driving HTTP adapter that routes requests to application
 // services.
 type Server struct {
-	weight *app.WeightService
-	water  *app.WaterService
-	charts *app.ChartsService
-	webDir string
+	weight      *app.WeightService
+	water       *app.WaterService
+	charts      *app.ChartsService
+	authSvc     *app.AuthService
+	webDir      string
+	disableAuth bool
 }
 
 // New creates a Server wired to the given application services.
-func New(ws *app.WeightService, wa *app.WaterService, cs *app.ChartsService, webDir string) *Server {
-	return &Server{weight: ws, water: wa, charts: cs, webDir: webDir}
+func New(ws *app.WeightService, wa *app.WaterService, cs *app.ChartsService, as *app.AuthService, webDir string) *Server {
+	return &Server{weight: ws, water: wa, charts: cs, authSvc: as, webDir: webDir, disableAuth: false}
+}
+
+// WithoutAuth disables authentication (for testing).
+func (s *Server) WithoutAuth() *Server {
+	s.disableAuth = true
+	return s
 }
 
 // Handler returns the root http.Handler for the application.
@@ -27,16 +35,22 @@ func (s *Server) Handler() http.Handler {
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	})
 
-	api.HandleFunc("/weight/today", s.handleWeightToday)
-	api.HandleFunc("/weight/recent", s.handleWeightRecent)
-	api.HandleFunc("/weight/undo-last", s.handleWeightUndoLast)
+	// Auth endpoints (public)
+	api.HandleFunc("/auth/login", s.handleLogin)
+	api.HandleFunc("/auth/logout", s.handleLogout)
+	api.HandleFunc("/auth/setup", s.handleSetupUser)
 
-	api.HandleFunc("/water/today", s.handleWaterToday)
-	api.HandleFunc("/water/event", s.handleWaterEvent)
-	api.HandleFunc("/water/recent", s.handleWaterRecent)
-	api.HandleFunc("/water/undo-last", s.handleWaterUndoLast)
+	// Protected API endpoints - wrap each handler with auth middleware
+	api.Handle("/weight/today", s.authMiddleware(http.HandlerFunc(s.handleWeightToday)))
+	api.Handle("/weight/recent", s.authMiddleware(http.HandlerFunc(s.handleWeightRecent)))
+	api.Handle("/weight/undo-last", s.authMiddleware(http.HandlerFunc(s.handleWeightUndoLast)))
 
-	api.HandleFunc("/charts/daily", s.handleChartsDaily)
+	api.Handle("/water/today", s.authMiddleware(http.HandlerFunc(s.handleWaterToday)))
+	api.Handle("/water/event", s.authMiddleware(http.HandlerFunc(s.handleWaterEvent)))
+	api.Handle("/water/recent", s.authMiddleware(http.HandlerFunc(s.handleWaterRecent)))
+	api.Handle("/water/undo-last", s.authMiddleware(http.HandlerFunc(s.handleWaterUndoLast)))
+
+	api.Handle("/charts/daily", s.authMiddleware(http.HandlerFunc(s.handleChartsDaily)))
 
 	root := http.NewServeMux()
 	root.Handle("/api/", http.StripPrefix("/api", api))
