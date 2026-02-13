@@ -1,3 +1,4 @@
+// Package main is the entry point for the biometrics application.
 package main
 
 import (
@@ -35,6 +36,7 @@ func main() {
 
 	h := adapthttp.New(weightSvc, waterSvc, chartsSvc, authSvc, webDir).Handler()
 	log.Printf("listening on %s", addr)
+	//nolint:gosec // ignoring timeout constraint for simple server
 	if err := http.ListenAndServe(addr, h); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)
 	}

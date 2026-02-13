@@ -1,3 +1,4 @@
+// Package app holds the application services and business logic.
 package app
 
 import (
@@ -14,10 +15,14 @@ import (
 )
 
 var (
+	// ErrInvalidCredentials indicates that the provided username or password was incorrect.
 	ErrInvalidCredentials = errors.New("invalid username or password")
-	ErrSessionNotFound    = errors.New("session not found")
-	ErrSessionExpired     = errors.New("session expired")
-	ErrUserNotFound       = errors.New("user not found")
+	// ErrSessionNotFound indicates that the requested session does not exist.
+	ErrSessionNotFound = errors.New("session not found")
+	// ErrSessionExpired indicates that the session has expired.
+	ErrSessionExpired = errors.New("session expired")
+	// ErrUserNotFound indicates that the user does not exist.
+	ErrUserNotFound = errors.New("user not found")
 )
 
 // AuthService handles authentication and session management.
@@ -41,7 +46,7 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (str
 		return "", ErrInvalidCredentials
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+	if err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
 		return "", ErrInvalidCredentials
 	}
 

@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"biometrics/internal/app"
-	"biometrics/internal/domain"
 )
 
 type contextKey string
@@ -51,12 +50,4 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), userContextKey, user)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
-}
-
-// getUserFromContext retrieves the authenticated user from the request context.
-func getUserFromContext(ctx context.Context) *domain.User {
-	if user, ok := ctx.Value(userContextKey).(*domain.User); ok {
-		return user
-	}
-	return nil
 }

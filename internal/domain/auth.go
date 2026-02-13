@@ -1,3 +1,4 @@
+// Package domain contains the core business entities and interfaces.
 package domain
 
 import (

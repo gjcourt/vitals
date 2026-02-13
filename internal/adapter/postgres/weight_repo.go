@@ -64,7 +64,7 @@ func (d *DB) ListRecentWeightEvents(ctx context.Context, limit int) ([]domain.We
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	out := make([]domain.WeightEntry, 0, limit)
 	for rows.Next() {

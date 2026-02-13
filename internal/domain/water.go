@@ -8,7 +8,7 @@ import (
 // WaterEvent represents a single water intake/decrement event.
 type WaterEvent struct {
 	ID          int64     `json:"id"`
-	DeltaLiters float64  `json:"deltaLiters"`
+	DeltaLiters float64   `json:"deltaLiters"`
 	CreatedAt   time.Time `json:"createdAt"`
 }
 

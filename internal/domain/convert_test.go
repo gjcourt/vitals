@@ -1,10 +1,10 @@
 package domain_test
 
 import (
-"math"
-"testing"
+	"math"
+	"testing"
 
-"biometrics/internal/domain"
+	"biometrics/internal/domain"
 )
 
 func almostEqual(a, b, epsilon float64) bool {
@@ -27,11 +27,11 @@ func TestConvertWeight(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-got := domain.ConvertWeight(tc.value, tc.from, tc.to)
-if !almostEqual(got, tc.want, 0.001) {
-t.Errorf("ConvertWeight(%v, %q, %q) = %v; want %v",
-tc.value, tc.from, tc.to, got, tc.want)
-}
-})
+			got := domain.ConvertWeight(tc.value, tc.from, tc.to)
+			if !almostEqual(got, tc.want, 0.001) {
+				t.Errorf("ConvertWeight(%v, %q, %q) = %v; want %v",
+					tc.value, tc.from, tc.to, got, tc.want)
+			}
+		})
 	}
 }

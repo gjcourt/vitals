@@ -172,3 +172,8 @@ docker run -e DATABASE_URL="..." -p 8080:8080 biometrics
 | `DATABASE_URL` | *(required)* | PostgreSQL connection string |
 | `ADDR` | `:8080` | Listen address |
 | `WEB_DIR` | `web` | Path to static frontend assets |
+
+## Container Strategy
+
+- **Versioning**: Tag images with the current date in `YYYY-MM-DD` format (e.g., `2026-02-12`).
+- **Push Policy**: Push updated images for all significant changes.

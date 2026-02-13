@@ -30,7 +30,7 @@ func (d *DB) ListRecentWaterEvents(ctx context.Context, limit int) ([]domain.Wat
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	out := make([]domain.WaterEvent, 0, limit)
 	for rows.Next() {
