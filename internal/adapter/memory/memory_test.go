@@ -9,10 +9,11 @@ import (
 func TestWeightRepository(t *testing.T) {
 	db := New()
 	ctx := context.Background()
+	userID := int64(1)
 
 	// Add event
 	now := time.Now()
-	id, err := db.AddWeightEvent(ctx, 70.0, "kg", now)
+	id, err := db.AddWeightEvent(ctx, userID, 70.0, "kg", now)
 	if err != nil {
 		t.Fatalf("AddWeightEvent: %v", err)
 	}
@@ -21,7 +22,7 @@ func TestWeightRepository(t *testing.T) {
 	}
 
 	// List events
-	events, err := db.ListRecentWeightEvents(ctx, 10)
+	events, err := db.ListRecentWeightEvents(ctx, userID, 10)
 	if err != nil {
 		t.Fatalf("ListRecentWeightEvents: %v", err)
 	}
@@ -35,9 +36,15 @@ func TestWeightRepository(t *testing.T) {
 		t.Error("expected Day to be populated")
 	}
 
+	// Other user sees nothing
+	events2, _ := db.ListRecentWeightEvents(ctx, 999, 10)
+	if len(events2) != 0 {
+		t.Error("expected 0 events for other user")
+	}
+
 	// Latest for day
 	localDay := now.Format("2006-01-02")
-	latest, err := db.LatestWeightForLocalDay(ctx, localDay)
+	latest, err := db.LatestWeightForLocalDay(ctx, userID, localDay)
 	if err != nil {
 		t.Fatalf("LatestWeightForLocalDay: %v", err)
 	}
@@ -48,7 +55,7 @@ func TestWeightRepository(t *testing.T) {
 	}
 
 	// Delete latest
-	ok, err := db.DeleteLatestWeightEvent(ctx)
+	ok, err := db.DeleteLatestWeightEvent(ctx, userID)
 	if err != nil {
 		t.Fatalf("DeleteLatestWeightEvent: %v", err)
 	}
@@ -56,7 +63,7 @@ func TestWeightRepository(t *testing.T) {
 		t.Error("expected true")
 	}
 
-	events, _ = db.ListRecentWeightEvents(ctx, 10)
+	events, _ = db.ListRecentWeightEvents(ctx, userID, 10)
 	if len(events) != 0 {
 		t.Error("expected 0 events")
 	}
@@ -65,16 +72,17 @@ func TestWeightRepository(t *testing.T) {
 func TestWaterRepository(t *testing.T) {
 	db := New()
 	ctx := context.Background()
+	userID := int64(1)
 
 	now := time.Now()
-	_, err := db.AddWaterEvent(ctx, 0.25, now)
+	_, err := db.AddWaterEvent(ctx, userID, 0.25, now)
 	if err != nil {
 		t.Fatalf("AddWaterEvent: %v", err)
 	}
-	_, _ = db.AddWaterEvent(ctx, 0.5, now.Add(time.Minute))
+	_, _ = db.AddWaterEvent(ctx, userID, 0.5, now.Add(time.Minute))
 
 	// List
-	events, err := db.ListRecentWaterEvents(ctx, 10)
+	events, err := db.ListRecentWaterEvents(ctx, userID, 10)
 	if err != nil {
 		t.Fatalf("ListRecentWaterEvents: %v", err)
 	}
@@ -82,9 +90,15 @@ func TestWaterRepository(t *testing.T) {
 		t.Errorf("expected 2 events, got %d", len(events))
 	}
 
+	// Other user sees nothing
+	events2, _ := db.ListRecentWaterEvents(ctx, 999, 10)
+	if len(events2) != 0 {
+		t.Error("expected 0 events for other user")
+	}
+
 	// Total for day
 	localDay := now.Format("2006-01-02")
-	total, err := db.WaterTotalForLocalDay(ctx, localDay)
+	total, err := db.WaterTotalForLocalDay(ctx, userID, localDay)
 	if err != nil {
 		t.Fatalf("WaterTotalForLocalDay: %v", err)
 	}

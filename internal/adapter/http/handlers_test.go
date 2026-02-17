@@ -21,29 +21,29 @@ import (
 // ---------------------------------------------------------------------------
 
 type mockWeightRepo struct {
-	addFn    func(ctx context.Context, value float64, unit string, createdAt time.Time) (int64, error)
-	deleteFn func(ctx context.Context) (bool, error)
-	latestFn func(ctx context.Context, localDay string) (*domain.WeightEntry, error)
-	listFn   func(ctx context.Context, limit int) ([]domain.WeightEntry, error)
+	addFn    func(ctx context.Context, userID int64, value float64, unit string, createdAt time.Time) (int64, error)
+	deleteFn func(ctx context.Context, userID int64) (bool, error)
+	latestFn func(ctx context.Context, userID int64, localDay string) (*domain.WeightEntry, error)
+	listFn   func(ctx context.Context, userID int64, limit int) ([]domain.WeightEntry, error)
 }
 
-func (m *mockWeightRepo) AddWeightEvent(ctx context.Context, value float64, unit string, createdAt time.Time) (int64, error) {
+func (m *mockWeightRepo) AddWeightEvent(ctx context.Context, userID int64, value float64, unit string, createdAt time.Time) (int64, error) {
 	if m.addFn != nil {
-		return m.addFn(ctx, value, unit, createdAt)
+		return m.addFn(ctx, userID, value, unit, createdAt)
 	}
 	return 1, nil
 }
 
-func (m *mockWeightRepo) DeleteLatestWeightEvent(ctx context.Context) (bool, error) {
+func (m *mockWeightRepo) DeleteLatestWeightEvent(ctx context.Context, userID int64) (bool, error) {
 	if m.deleteFn != nil {
-		return m.deleteFn(ctx)
+		return m.deleteFn(ctx, userID)
 	}
 	return true, nil
 }
 
-func (m *mockWeightRepo) LatestWeightForLocalDay(ctx context.Context, localDay string) (*domain.WeightEntry, error) {
+func (m *mockWeightRepo) LatestWeightForLocalDay(ctx context.Context, userID int64, localDay string) (*domain.WeightEntry, error) {
 	if m.latestFn != nil {
-		return m.latestFn(ctx, localDay)
+		return m.latestFn(ctx, userID, localDay)
 	}
 	return &domain.WeightEntry{
 		ID: 1, Day: localDay, Value: 80.0, Unit: "kg",
@@ -51,9 +51,9 @@ func (m *mockWeightRepo) LatestWeightForLocalDay(ctx context.Context, localDay s
 	}, nil
 }
 
-func (m *mockWeightRepo) ListRecentWeightEvents(ctx context.Context, limit int) ([]domain.WeightEntry, error) {
+func (m *mockWeightRepo) ListRecentWeightEvents(ctx context.Context, userID int64, limit int) ([]domain.WeightEntry, error) {
 	if m.listFn != nil {
-		return m.listFn(ctx, limit)
+		return m.listFn(ctx, userID, limit)
 	}
 	return []domain.WeightEntry{
 		{ID: 1, Day: "2026-02-08", Value: 80.0, Unit: "kg", CreatedAt: time.Now()},
@@ -61,38 +61,38 @@ func (m *mockWeightRepo) ListRecentWeightEvents(ctx context.Context, limit int) 
 }
 
 type mockWaterRepo struct {
-	addFn   func(ctx context.Context, deltaLiters float64, createdAt time.Time) (int64, error)
-	delFn   func(ctx context.Context, id int64) error
-	listFn  func(ctx context.Context, limit int) ([]domain.WaterEvent, error)
-	totalFn func(ctx context.Context, localDay string) (float64, error)
+	addFn   func(ctx context.Context, userID int64, deltaLiters float64, createdAt time.Time) (int64, error)
+	delFn   func(ctx context.Context, userID int64, id int64) error
+	listFn  func(ctx context.Context, userID int64, limit int) ([]domain.WaterEvent, error)
+	totalFn func(ctx context.Context, userID int64, localDay string) (float64, error)
 }
 
-func (m *mockWaterRepo) AddWaterEvent(ctx context.Context, deltaLiters float64, createdAt time.Time) (int64, error) {
+func (m *mockWaterRepo) AddWaterEvent(ctx context.Context, userID int64, deltaLiters float64, createdAt time.Time) (int64, error) {
 	if m.addFn != nil {
-		return m.addFn(ctx, deltaLiters, createdAt)
+		return m.addFn(ctx, userID, deltaLiters, createdAt)
 	}
 	return 42, nil
 }
 
-func (m *mockWaterRepo) DeleteWaterEvent(ctx context.Context, id int64) error {
+func (m *mockWaterRepo) DeleteWaterEvent(ctx context.Context, userID int64, id int64) error {
 	if m.delFn != nil {
-		return m.delFn(ctx, id)
+		return m.delFn(ctx, userID, id)
 	}
 	return nil
 }
 
-func (m *mockWaterRepo) ListRecentWaterEvents(ctx context.Context, limit int) ([]domain.WaterEvent, error) {
+func (m *mockWaterRepo) ListRecentWaterEvents(ctx context.Context, userID int64, limit int) ([]domain.WaterEvent, error) {
 	if m.listFn != nil {
-		return m.listFn(ctx, limit)
+		return m.listFn(ctx, userID, limit)
 	}
 	return []domain.WaterEvent{
 		{ID: 10, DeltaLiters: 0.5, CreatedAt: time.Now()},
 	}, nil
 }
 
-func (m *mockWaterRepo) WaterTotalForLocalDay(ctx context.Context, localDay string) (float64, error) {
+func (m *mockWaterRepo) WaterTotalForLocalDay(ctx context.Context, userID int64, localDay string) (float64, error) {
 	if m.totalFn != nil {
-		return m.totalFn(ctx, localDay)
+		return m.totalFn(ctx, userID, localDay)
 	}
 	return 2.5, nil
 }
@@ -198,7 +198,7 @@ func TestHealthEndpoint(t *testing.T) {
 
 func TestWeightTodayGet(t *testing.T) {
 	ts := newTestServer(t, &mockWeightRepo{
-		latestFn: func(_ context.Context, localDay string) (*domain.WeightEntry, error) {
+		latestFn: func(_ context.Context, _ int64, localDay string) (*domain.WeightEntry, error) {
 			return &domain.WeightEntry{
 				ID: 1, Day: localDay, Value: 82.3, Unit: "kg",
 				CreatedAt: time.Date(2026, 2, 8, 7, 0, 0, 0, time.UTC),
@@ -298,7 +298,7 @@ func TestWeightRecent(t *testing.T) {
 		{ID: 2, Day: "2026-02-07", Value: 81.0, Unit: "kg", CreatedAt: time.Now()},
 	}
 	ts := newTestServer(t, &mockWeightRepo{
-		listFn: func(_ context.Context, limit int) ([]domain.WeightEntry, error) {
+		listFn: func(_ context.Context, _ int64, limit int) ([]domain.WeightEntry, error) {
 			if limit < len(items) {
 				return items[:limit], nil
 			}
@@ -329,7 +329,7 @@ func TestWeightRecent(t *testing.T) {
 
 func TestWeightUndoLast(t *testing.T) {
 	ts := newTestServer(t, &mockWeightRepo{
-		deleteFn: func(_ context.Context) (bool, error) {
+		deleteFn: func(_ context.Context, _ int64) (bool, error) {
 			return true, nil
 		},
 	}, nil)
@@ -356,7 +356,7 @@ func TestWeightUndoLast(t *testing.T) {
 
 func TestWaterTodayGet(t *testing.T) {
 	ts := newTestServer(t, nil, &mockWaterRepo{
-		totalFn: func(_ context.Context, _ string) (float64, error) {
+		totalFn: func(_ context.Context, _ int64, _ string) (float64, error) {
 			return 3.0, nil
 		},
 	})
@@ -446,7 +446,7 @@ func TestWaterRecent(t *testing.T) {
 		{ID: 11, DeltaLiters: 0.3, CreatedAt: time.Now()},
 	}
 	ts := newTestServer(t, nil, &mockWaterRepo{
-		listFn: func(_ context.Context, limit int) ([]domain.WaterEvent, error) {
+		listFn: func(_ context.Context, _ int64, limit int) ([]domain.WaterEvent, error) {
 			if limit < len(events) {
 				return events[:limit], nil
 			}
@@ -477,7 +477,7 @@ func TestWaterRecent(t *testing.T) {
 
 func TestWaterUndoLast(t *testing.T) {
 	ts := newTestServer(t, nil, &mockWaterRepo{
-		listFn: func(_ context.Context, limit int) ([]domain.WaterEvent, error) {
+		listFn: func(_ context.Context, _ int64, limit int) ([]domain.WaterEvent, error) {
 			return []domain.WaterEvent{
 				{ID: 99, DeltaLiters: 0.5, CreatedAt: time.Now()},
 			}, nil

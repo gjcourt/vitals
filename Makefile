@@ -49,9 +49,15 @@ install-test-deps:
 lint:
 	golangci-lint run ./...
 
+# Container image variables
+REGISTRY ?= ghcr.io
+REGISTRY_USER ?= gjcourt
+IMAGE_TAG ?= $(shell date +%Y-%m-%d)
+PLATFORM ?= linux/amd64
+
 .PHONY: image
 image:
-	./scripts/build_and_push_image.sh
+	REGISTRY=$(REGISTRY) REGISTRY_USER=$(REGISTRY_USER) IMAGE_TAG=$(IMAGE_TAG) PLATFORM=$(PLATFORM) ./scripts/build_and_push_image.sh
 
 # Build for multiple platforms
 .PHONY: build-all

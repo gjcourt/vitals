@@ -10,7 +10,7 @@ import (
 
 func TestGetDaily_BadUnit(t *testing.T) {
 	svc := app.NewChartsService(&mockWeightRepo{}, &mockWaterRepo{})
-	_, err := svc.GetDaily(context.Background(), 7, "stones")
+	_, err := svc.GetDaily(context.Background(), 1, 7, "stones")
 	if err == nil {
 		t.Fatal("expected error for bad unit")
 	}
@@ -18,16 +18,16 @@ func TestGetDaily_BadUnit(t *testing.T) {
 
 func TestGetDaily_Success(t *testing.T) {
 	wr := &mockWeightRepo{
-		latestFn: func(_ context.Context, _ string) (*domain.WeightEntry, error) {
+		latestFn: func(_ context.Context, _ int64, _ string) (*domain.WeightEntry, error) {
 			return &domain.WeightEntry{ID: 1, Value: 80, Unit: "kg"}, nil
 		},
 	}
 	wa := &mockWaterRepo{
-		totalFn: func(_ context.Context, _ string) (float64, error) { return 2.5, nil },
+		totalFn: func(_ context.Context, _ int64, _ string) (float64, error) { return 2.5, nil },
 	}
 
 	svc := app.NewChartsService(wr, wa)
-	points, err := svc.GetDaily(context.Background(), 3, "kg")
+	points, err := svc.GetDaily(context.Background(), 1, 3, "kg")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -46,16 +46,16 @@ func TestGetDaily_Success(t *testing.T) {
 
 func TestGetDaily_ConvertUnit(t *testing.T) {
 	wr := &mockWeightRepo{
-		latestFn: func(_ context.Context, _ string) (*domain.WeightEntry, error) {
+		latestFn: func(_ context.Context, _ int64, _ string) (*domain.WeightEntry, error) {
 			return &domain.WeightEntry{ID: 1, Value: 100, Unit: "kg"}, nil
 		},
 	}
 	wa := &mockWaterRepo{
-		totalFn: func(_ context.Context, _ string) (float64, error) { return 0, nil },
+		totalFn: func(_ context.Context, _ int64, _ string) (float64, error) { return 0, nil },
 	}
 
 	svc := app.NewChartsService(wr, wa)
-	points, err := svc.GetDaily(context.Background(), 1, "lb")
+	points, err := svc.GetDaily(context.Background(), 1, 1, "lb")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -69,16 +69,16 @@ func TestGetDaily_ConvertUnit(t *testing.T) {
 
 func TestGetDaily_ClampsTo366(t *testing.T) {
 	wr := &mockWeightRepo{
-		latestFn: func(_ context.Context, _ string) (*domain.WeightEntry, error) {
+		latestFn: func(_ context.Context, _ int64, _ string) (*domain.WeightEntry, error) {
 			return nil, nil
 		},
 	}
 	wa := &mockWaterRepo{
-		totalFn: func(_ context.Context, _ string) (float64, error) { return 0, nil },
+		totalFn: func(_ context.Context, _ int64, _ string) (float64, error) { return 0, nil },
 	}
 
 	svc := app.NewChartsService(wr, wa)
-	points, err := svc.GetDaily(context.Background(), 500, "kg")
+	points, err := svc.GetDaily(context.Background(), 1, 500, "kg")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -89,16 +89,16 @@ func TestGetDaily_ClampsTo366(t *testing.T) {
 
 func TestGetDaily_NoWeight(t *testing.T) {
 	wr := &mockWeightRepo{
-		latestFn: func(_ context.Context, _ string) (*domain.WeightEntry, error) {
+		latestFn: func(_ context.Context, _ int64, _ string) (*domain.WeightEntry, error) {
 			return nil, nil
 		},
 	}
 	wa := &mockWaterRepo{
-		totalFn: func(_ context.Context, _ string) (float64, error) { return 1.0, nil },
+		totalFn: func(_ context.Context, _ int64, _ string) (float64, error) { return 1.0, nil },
 	}
 
 	svc := app.NewChartsService(wr, wa)
-	points, err := svc.GetDaily(context.Background(), 1, "kg")
+	points, err := svc.GetDaily(context.Background(), 1, 1, "kg")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

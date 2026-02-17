@@ -7,11 +7,12 @@ import (
 
 func (s *Server) handleWeightToday(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	user := userFromContext(r)
 	today := localDayString(time.Now())
 
 	switch r.Method {
 	case http.MethodGet:
-		entry, err := s.weight.GetTodayWeight(ctx, today)
+		entry, err := s.weight.GetTodayWeight(ctx, user.ID, today)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err)
 			return
@@ -27,7 +28,7 @@ func (s *Server) handleWeightToday(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
-		entry, _, err := s.weight.RecordWeight(ctx, body.Value, body.Unit)
+		entry, _, err := s.weight.RecordWeight(ctx, user.ID, body.Value, body.Unit)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err)
 			return
@@ -44,8 +45,9 @@ func (s *Server) handleWeightRecent(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+	user := userFromContext(r)
 	limit := intQuery(r, "limit", 14)
-	items, err := s.weight.ListRecent(r.Context(), limit)
+	items, err := s.weight.ListRecent(r.Context(), user.ID, limit)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -58,7 +60,8 @@ func (s *Server) handleWeightUndoLast(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	deleted, entry, today, err := s.weight.UndoLast(r.Context())
+	user := userFromContext(r)
+	deleted, entry, today, err := s.weight.UndoLast(r.Context(), user.ID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return

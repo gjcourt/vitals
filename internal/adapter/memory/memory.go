@@ -40,7 +40,7 @@ var _ domain.SessionRepository = (*SessionRepo)(nil)
 // --- WeightRepository ---
 
 // AddWeightEvent adds a weight event.
-func (db *DB) AddWeightEvent(ctx context.Context, value float64, unit string, createdAt time.Time) (int64, error) {
+func (db *DB) AddWeightEvent(ctx context.Context, userID int64, value float64, unit string, createdAt time.Time) (int64, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
@@ -49,6 +49,7 @@ func (db *DB) AddWeightEvent(ctx context.Context, value float64, unit string, cr
 
 	entry := domain.WeightEntry{
 		ID:        id,
+		UserID:    userID,
 		Value:     value,
 		Unit:      unit,
 		CreatedAt: createdAt.UTC(),
@@ -57,8 +58,8 @@ func (db *DB) AddWeightEvent(ctx context.Context, value float64, unit string, cr
 	return id, nil
 }
 
-// DeleteLatestWeightEvent deletes the most recent weight event.
-func (db *DB) DeleteLatestWeightEvent(ctx context.Context) (bool, error) {
+// DeleteLatestWeightEvent deletes the most recent weight event for a user.
+func (db *DB) DeleteLatestWeightEvent(ctx context.Context, userID int64) (bool, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
@@ -66,11 +67,14 @@ func (db *DB) DeleteLatestWeightEvent(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 
-	// Find index of latest created_at
+	// Find index of latest created_at for this user
 	lastIdx := -1
 	var lastTime time.Time
 
 	for i, w := range db.weights {
+		if w.UserID != userID {
+			continue
+		}
 		if lastIdx == -1 || w.CreatedAt.After(lastTime) {
 			lastIdx = i
 			lastTime = w.CreatedAt
@@ -85,8 +89,8 @@ func (db *DB) DeleteLatestWeightEvent(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-// LatestWeightForLocalDay returns the latest weight for the given day.
-func (db *DB) LatestWeightForLocalDay(ctx context.Context, localDay string) (*domain.WeightEntry, error) {
+// LatestWeightForLocalDay returns the latest weight for the given day for a user.
+func (db *DB) LatestWeightForLocalDay(ctx context.Context, userID int64, localDay string) (*domain.WeightEntry, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
@@ -100,6 +104,9 @@ func (db *DB) LatestWeightForLocalDay(ctx context.Context, localDay string) (*do
 
 	for i := range db.weights {
 		w := &db.weights[i]
+		if w.UserID != userID {
+			continue
+		}
 		// Compare using UTC as that's how it's stored and Postgres does comparison
 		if !w.CreatedAt.Before(dayStart.UTC()) && w.CreatedAt.Before(dayEnd.UTC()) {
 			if latest == nil || w.CreatedAt.After(latest.CreatedAt) {
@@ -117,36 +124,40 @@ func (db *DB) LatestWeightForLocalDay(ctx context.Context, localDay string) (*do
 	return nil, nil
 }
 
-// ListRecentWeightEvents lists the most recent weight events.
-func (db *DB) ListRecentWeightEvents(ctx context.Context, limit int) ([]domain.WeightEntry, error) {
+// ListRecentWeightEvents lists the most recent weight events for a user.
+func (db *DB) ListRecentWeightEvents(ctx context.Context, userID int64, limit int) ([]domain.WeightEntry, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	// copy
-	result := make([]domain.WeightEntry, len(db.weights))
-	copy(result, db.weights)
+	// filter by user
+	var filtered []domain.WeightEntry
+	for _, w := range db.weights {
+		if w.UserID == userID {
+			filtered = append(filtered, w)
+		}
+	}
 
 	// sort desc
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].CreatedAt.After(result[j].CreatedAt)
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].CreatedAt.After(filtered[j].CreatedAt)
 	})
 
-	if len(result) > limit {
-		result = result[:limit]
+	if len(filtered) > limit {
+		filtered = filtered[:limit]
 	}
 
 	// Populate Day field based on CreatedAt in Local time
-	for i := range result {
-		result[i].Day = result[i].CreatedAt.In(time.Local).Format("2006-01-02")
+	for i := range filtered {
+		filtered[i].Day = filtered[i].CreatedAt.In(time.Local).Format("2006-01-02")
 	}
 
-	return result, nil
+	return filtered, nil
 }
 
 // --- WaterRepository ---
 
 // AddWaterEvent adds a water event.
-func (db *DB) AddWaterEvent(ctx context.Context, deltaLiters float64, createdAt time.Time) (int64, error) {
+func (db *DB) AddWaterEvent(ctx context.Context, userID int64, deltaLiters float64, createdAt time.Time) (int64, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
@@ -155,6 +166,7 @@ func (db *DB) AddWaterEvent(ctx context.Context, deltaLiters float64, createdAt 
 
 	event := domain.WaterEvent{
 		ID:          id,
+		UserID:      userID,
 		DeltaLiters: deltaLiters,
 		CreatedAt:   createdAt.UTC(),
 	}
@@ -162,41 +174,44 @@ func (db *DB) AddWaterEvent(ctx context.Context, deltaLiters float64, createdAt 
 	return id, nil
 }
 
-// DeleteWaterEvent deletes a water event by ID.
-func (db *DB) DeleteWaterEvent(ctx context.Context, id int64) error {
+// DeleteWaterEvent deletes a water event by ID, scoped to a user.
+func (db *DB) DeleteWaterEvent(ctx context.Context, userID int64, id int64) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
 	for i, w := range db.waterEvents {
-		if w.ID == id {
+		if w.ID == id && w.UserID == userID {
 			db.waterEvents = append(db.waterEvents[:i], db.waterEvents[i+1:]...)
 			return nil
 		}
 	}
-	// No error if not found, usually?
 	return nil
 }
 
-// ListRecentWaterEvents lists the most recent water events.
-func (db *DB) ListRecentWaterEvents(ctx context.Context, limit int) ([]domain.WaterEvent, error) {
+// ListRecentWaterEvents lists the most recent water events for a user.
+func (db *DB) ListRecentWaterEvents(ctx context.Context, userID int64, limit int) ([]domain.WaterEvent, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	result := make([]domain.WaterEvent, len(db.waterEvents))
-	copy(result, db.waterEvents)
+	var filtered []domain.WaterEvent
+	for _, w := range db.waterEvents {
+		if w.UserID == userID {
+			filtered = append(filtered, w)
+		}
+	}
 
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].CreatedAt.After(result[j].CreatedAt)
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].CreatedAt.After(filtered[j].CreatedAt)
 	})
 
-	if len(result) > limit {
-		result = result[:limit]
+	if len(filtered) > limit {
+		filtered = filtered[:limit]
 	}
-	return result, nil
+	return filtered, nil
 }
 
-// WaterTotalForLocalDay returns the total water intake for the given day.
-func (db *DB) WaterTotalForLocalDay(ctx context.Context, localDay string) (float64, error) {
+// WaterTotalForLocalDay returns the total water intake for the given day for a user.
+func (db *DB) WaterTotalForLocalDay(ctx context.Context, userID int64, localDay string) (float64, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
@@ -208,6 +223,9 @@ func (db *DB) WaterTotalForLocalDay(ctx context.Context, localDay string) (float
 
 	var total float64
 	for _, w := range db.waterEvents {
+		if w.UserID != userID {
+			continue
+		}
 		if !w.CreatedAt.Before(dayStart.UTC()) && w.CreatedAt.Before(dayEnd.UTC()) {
 			total += w.DeltaLiters
 		}

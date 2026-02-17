@@ -34,7 +34,7 @@ type WeightPoint struct {
 
 // GetDaily returns per-day chart data for the last days days, with weights
 // converted to the requested unit.
-func (s *ChartsService) GetDaily(ctx context.Context, days int, unit string) ([]DayPoint, error) {
+func (s *ChartsService) GetDaily(ctx context.Context, userID int64, days int, unit string) ([]DayPoint, error) {
 	if unit != "kg" && unit != "lb" {
 		return nil, errors.New("unit must be \"kg\" or \"lb\"")
 	}
@@ -49,12 +49,12 @@ func (s *ChartsService) GetDaily(ctx context.Context, days int, unit string) ([]
 		d := today.AddDate(0, 0, -i)
 		dayStr := d.Format("2006-01-02")
 
-		waterLiters, err := s.waterRepo.WaterTotalForLocalDay(ctx, dayStr)
+		waterLiters, err := s.waterRepo.WaterTotalForLocalDay(ctx, userID, dayStr)
 		if err != nil {
 			return nil, err
 		}
 
-		entry, err := s.weightRepo.LatestWeightForLocalDay(ctx, dayStr)
+		entry, err := s.weightRepo.LatestWeightForLocalDay(ctx, userID, dayStr)
 		if err != nil {
 			return nil, err
 		}
