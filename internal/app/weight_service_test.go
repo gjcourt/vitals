@@ -11,36 +11,36 @@ import (
 )
 
 type mockWeightRepo struct {
-	addFn    func(ctx context.Context, v float64, u string, t time.Time) (int64, error)
-	deleteFn func(ctx context.Context) (bool, error)
-	latestFn func(ctx context.Context, day string) (*domain.WeightEntry, error)
-	listFn   func(ctx context.Context, limit int) ([]domain.WeightEntry, error)
+	addFn    func(ctx context.Context, userID int64, v float64, u string, t time.Time) (int64, error)
+	deleteFn func(ctx context.Context, userID int64) (bool, error)
+	latestFn func(ctx context.Context, userID int64, day string) (*domain.WeightEntry, error)
+	listFn   func(ctx context.Context, userID int64, limit int) ([]domain.WeightEntry, error)
 }
 
-func (m *mockWeightRepo) AddWeightEvent(ctx context.Context, v float64, u string, t time.Time) (int64, error) {
+func (m *mockWeightRepo) AddWeightEvent(ctx context.Context, userID int64, v float64, u string, t time.Time) (int64, error) {
 	if m.addFn != nil {
-		return m.addFn(ctx, v, u, t)
+		return m.addFn(ctx, userID, v, u, t)
 	}
 	return 0, nil
 }
 
-func (m *mockWeightRepo) DeleteLatestWeightEvent(ctx context.Context) (bool, error) {
+func (m *mockWeightRepo) DeleteLatestWeightEvent(ctx context.Context, userID int64) (bool, error) {
 	if m.deleteFn != nil {
-		return m.deleteFn(ctx)
+		return m.deleteFn(ctx, userID)
 	}
 	return false, nil
 }
 
-func (m *mockWeightRepo) LatestWeightForLocalDay(ctx context.Context, day string) (*domain.WeightEntry, error) {
+func (m *mockWeightRepo) LatestWeightForLocalDay(ctx context.Context, userID int64, day string) (*domain.WeightEntry, error) {
 	if m.latestFn != nil {
-		return m.latestFn(ctx, day)
+		return m.latestFn(ctx, userID, day)
 	}
 	return nil, nil
 }
 
-func (m *mockWeightRepo) ListRecentWeightEvents(ctx context.Context, limit int) ([]domain.WeightEntry, error) {
+func (m *mockWeightRepo) ListRecentWeightEvents(ctx context.Context, userID int64, limit int) ([]domain.WeightEntry, error) {
 	if m.listFn != nil {
-		return m.listFn(ctx, limit)
+		return m.listFn(ctx, userID, limit)
 	}
 	return nil, nil
 }
@@ -59,7 +59,7 @@ func TestRecordWeight_Validation(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, _, err := svc.RecordWeight(context.Background(), tc.value, tc.unit)
+			_, _, err := svc.RecordWeight(context.Background(), 1, tc.value, tc.unit)
 			if err == nil {
 				t.Fatal("expected validation error")
 			}
@@ -70,15 +70,15 @@ func TestRecordWeight_Validation(t *testing.T) {
 func TestRecordWeight_Success(t *testing.T) {
 	entry := &domain.WeightEntry{ID: 1, Value: 80, Unit: "kg"}
 	repo := &mockWeightRepo{
-		addFn: func(_ context.Context, _ float64, _ string, _ time.Time) (int64, error) {
+		addFn: func(_ context.Context, _ int64, _ float64, _ string, _ time.Time) (int64, error) {
 			return 1, nil
 		},
-		latestFn: func(_ context.Context, _ string) (*domain.WeightEntry, error) {
+		latestFn: func(_ context.Context, _ int64, _ string) (*domain.WeightEntry, error) {
 			return entry, nil
 		},
 	}
 	svc := app.NewWeightService(repo)
-	got, today, err := svc.RecordWeight(context.Background(), 80, "kg")
+	got, today, err := svc.RecordWeight(context.Background(), 1, 80, "kg")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -92,12 +92,12 @@ func TestRecordWeight_Success(t *testing.T) {
 
 func TestRecordWeight_RepoError(t *testing.T) {
 	repo := &mockWeightRepo{
-		addFn: func(_ context.Context, _ float64, _ string, _ time.Time) (int64, error) {
+		addFn: func(_ context.Context, _ int64, _ float64, _ string, _ time.Time) (int64, error) {
 			return 0, errors.New("db down")
 		},
 	}
 	svc := app.NewWeightService(repo)
-	_, _, err := svc.RecordWeight(context.Background(), 80, "kg")
+	_, _, err := svc.RecordWeight(context.Background(), 1, 80, "kg")
 	if err == nil {
 		t.Fatal("expected error from repo")
 	}
@@ -106,7 +106,7 @@ func TestRecordWeight_RepoError(t *testing.T) {
 func TestGetTodayWeight(t *testing.T) {
 	entry := &domain.WeightEntry{ID: 5, Value: 75, Unit: "kg"}
 	repo := &mockWeightRepo{
-		latestFn: func(_ context.Context, day string) (*domain.WeightEntry, error) {
+		latestFn: func(_ context.Context, _ int64, day string) (*domain.WeightEntry, error) {
 			if day != "2026-01-15" {
 				t.Fatalf("unexpected day: %s", day)
 			}
@@ -114,7 +114,7 @@ func TestGetTodayWeight(t *testing.T) {
 		},
 	}
 	svc := app.NewWeightService(repo)
-	got, err := svc.GetTodayWeight(context.Background(), "2026-01-15")
+	got, err := svc.GetTodayWeight(context.Background(), 1, "2026-01-15")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -125,11 +125,11 @@ func TestGetTodayWeight(t *testing.T) {
 
 func TestUndoLastWeight(t *testing.T) {
 	repo := &mockWeightRepo{
-		deleteFn: func(_ context.Context) (bool, error) { return true, nil },
-		latestFn: func(_ context.Context, _ string) (*domain.WeightEntry, error) { return nil, nil },
+		deleteFn: func(_ context.Context, _ int64) (bool, error) { return true, nil },
+		latestFn: func(_ context.Context, _ int64, _ string) (*domain.WeightEntry, error) { return nil, nil },
 	}
 	svc := app.NewWeightService(repo)
-	deleted, _, _, err := svc.UndoLast(context.Background())
+	deleted, _, _, err := svc.UndoLast(context.Background(), 1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -140,12 +140,12 @@ func TestUndoLastWeight(t *testing.T) {
 
 func TestListRecentWeight_Error(t *testing.T) {
 	repo := &mockWeightRepo{
-		listFn: func(_ context.Context, _ int) ([]domain.WeightEntry, error) {
+		listFn: func(_ context.Context, _ int64, _ int) ([]domain.WeightEntry, error) {
 			return nil, errors.New("db down")
 		},
 	}
 	svc := app.NewWeightService(repo)
-	_, err := svc.ListRecent(context.Background(), 10)
+	_, err := svc.ListRecent(context.Background(), 1, 10)
 	if err == nil {
 		t.Fatal("expected error")
 	}

@@ -62,6 +62,23 @@ func (d *DB) migrate(ctx context.Context) error {
 		}
 	}
 
+	// Add user_id columns to weight_events and water_events if they don't exist.
+	alterStmts := []string{
+		"ALTER TABLE weight_events ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES users(id);",
+		"ALTER TABLE water_events ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES users(id);",
+		"CREATE INDEX IF NOT EXISTS idx_weight_events_user_id ON weight_events(user_id);",
+		"CREATE INDEX IF NOT EXISTS idx_water_events_user_id ON water_events(user_id);",
+	}
+	for _, stmt := range alterStmts {
+		if _, err := d.sql.ExecContext(ctx, stmt); err != nil {
+			return fmt.Errorf("migrate: %w", err)
+		}
+	}
+
+	// Assign orphaned events to the first user if one exists.
+	_, _ = d.sql.ExecContext(ctx, "UPDATE weight_events SET user_id = (SELECT id FROM users ORDER BY id LIMIT 1) WHERE user_id IS NULL AND EXISTS (SELECT 1 FROM users);")
+	_, _ = d.sql.ExecContext(ctx, "UPDATE water_events SET user_id = (SELECT id FROM users ORDER BY id LIMIT 1) WHERE user_id IS NULL AND EXISTS (SELECT 1 FROM users);")
+
 	var eventCount int
 	if err := d.sql.QueryRowContext(ctx, "SELECT COUNT(1) FROM weight_events;").Scan(&eventCount); err != nil {
 		return fmt.Errorf("migrate: count weight_events: %w", err)

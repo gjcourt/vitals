@@ -70,9 +70,21 @@ Use descriptive prefixed branch names:
 
 1. Create a branch: `git checkout -b <type>/<description>`
 2. Make focused commits with clear messages.
-3. Push and open a PR: `gh pr create --title "..." --body "..."`
-4. Verify CI passes: `gh pr checks`
-5. After review/approval: `gh pr merge --squash`
+3. **Before pushing, verify locally:**
+   - `golangci-lint run ./...` — must report **0 issues**
+   - `go test -race ./...` — all tests must **pass**
+4. Push and open a PR: `gh pr create --title "..." --body "..."`
+5. Verify CI passes: `gh pr checks`
+6. After review/approval: `gh pr merge --squash`
+
+### CI quality gate
+
+**Linting and tests must pass before creating or updating a PR.**
+
+- The CI pipeline runs `golangci-lint` and `go test` on every push.
+- Never push code that you know has lint warnings or test failures.
+- If CI fails after pushing, fix the issues and force-push the branch before
+  requesting review.
 
 ### PR size constraint
 
@@ -175,5 +187,6 @@ docker run -e DATABASE_URL="..." -p 8080:8080 biometrics
 
 ## Container Strategy
 
-- **Versioning**: Tag images with the current date in `YYYY-MM-DD` format (e.g., `2026-02-12`).
+- **Versioning**: Tag images with the current date in `YYYY-MM-DD` format (e.g., `2026-02-15`).
+- **Deduplication**: If a tag for today already exists, append `-v2`, `-v3`, etc. (e.g., `2026-02-15-v2`).
 - **Push Policy**: Push updated images for all significant changes.

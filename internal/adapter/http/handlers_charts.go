@@ -11,13 +11,14 @@ func (s *Server) handleChartsDaily(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user := userFromContext(r)
 	days := intQuery(r, "days", 90)
 	unit := r.URL.Query().Get("unit")
 	if unit == "" {
 		unit = "lb"
 	}
 
-	points, err := s.charts.GetDaily(r.Context(), days, unit)
+	points, err := s.charts.GetDaily(r.Context(), user.ID, days, unit)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return

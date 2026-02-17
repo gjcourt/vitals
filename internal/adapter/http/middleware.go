@@ -7,18 +7,28 @@ import (
 	"time"
 
 	"biometrics/internal/app"
+	"biometrics/internal/domain"
 )
 
 type contextKey string
 
 const userContextKey contextKey = "user"
 
+// userFromContext returns the authenticated user from the request context.
+func userFromContext(r *http.Request) *domain.User {
+	if u, ok := r.Context().Value(userContextKey).(*domain.User); ok {
+		return u
+	}
+	return nil
+}
+
 // authMiddleware validates session tokens and forward auth headers.
 func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Skip auth if disabled (for tests)
+		// Skip auth if disabled (for tests / dev) — inject a default user
 		if s.disableAuth {
-			next.ServeHTTP(w, r)
+			ctx := context.WithValue(r.Context(), userContextKey, &domain.User{ID: 0, Username: "dev"})
+			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
 
