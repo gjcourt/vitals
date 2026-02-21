@@ -1,5 +1,8 @@
+import { initTheme } from './theme.js';
+
 const statusEl = document.getElementById('status');
 const refreshBtn = document.getElementById('refreshBtn');
+const logoutBtn = document.getElementById('logoutBtn');
 
 const waterCanvas = document.getElementById('waterChart');
 const weightCanvas = document.getElementById('weightChart');
@@ -41,6 +44,11 @@ document.querySelectorAll('button[data-days]').forEach((btn) => {
   });
 });
 
+logoutBtn.addEventListener('click', async () => {
+  await fetch('/logout', { method: 'POST' });
+  location.reload();
+});
+
 refreshBtn.addEventListener('click', refresh);
 
 function drawLineChart(canvas, series, opts) {
@@ -56,7 +64,8 @@ function drawLineChart(canvas, series, opts) {
   const padB = 28;
 
   // Background
-  ctx.fillStyle = '#0b1220';
+  const bg = getComputedStyle(document.body).getPropertyValue('--bg').trim();
+  ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, h);
 
   // Plot area
@@ -65,7 +74,7 @@ function drawLineChart(canvas, series, opts) {
 
   const values = series.map((p) => p.value).filter((v) => Number.isFinite(v));
   if (values.length === 0) {
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--muted').trim();
     ctx.font = '14px system-ui';
     ctx.fillText('No data', padL, padT + 18);
     return;
@@ -88,8 +97,8 @@ function drawLineChart(canvas, series, opts) {
   }
 
   // Grid + y labels (3 lines)
-  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-  ctx.fillStyle = 'rgba(255,255,255,0.65)';
+  ctx.strokeStyle = 'rgba(128,128,128,0.2)';
+  ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--muted').trim();
   ctx.font = '12px system-ui';
 
   for (let g = 0; g <= 2; g++) {
@@ -126,8 +135,20 @@ function drawLineChart(canvas, series, opts) {
   }
   ctx.stroke();
 
+  // Draw dots for all points
+  ctx.fillStyle = opts.color;
+  for (let i = 0; i < series.length; i++) {
+    const p = series[i];
+    if (!Number.isFinite(p.value)) continue;
+    const x = xAt(i);
+    const y = yAt(p.value);
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, 2 * Math.PI);
+    ctx.fill();
+  }
+
   // X labels: first / middle / last (day)
-  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--muted').trim();
   const idxs = [0, Math.floor((series.length - 1) / 2), series.length - 1];
   const seen = new Set();
   for (const idx of idxs) {
@@ -190,4 +211,5 @@ async function safeJson(res) {
 }
 
 setUnit(unit);
+initTheme();
 refresh();

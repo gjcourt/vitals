@@ -15,6 +15,7 @@
           <div class="subtitle" id="status">Loading…</div>
         </div>
         <div class="row gap">
+          <button class="ghost" id="logoutBtn" type="button">Log out</button>
           <a class="ghost" href="/charts">Charts</a>
           <button class="ghost" id="refreshBtn" type="button">Refresh</button>
         </div>
@@ -69,7 +70,15 @@
         </section>
       </main>
 
-      <footer class="footer muted">Stored locally in SQLite on the server.</footer>
+      <footer class="footer muted">
+        <span>Stored securely on the server.</span>
+        <select id="themeSelect" aria-label="Theme">
+          <option value="dark">Dark</option>
+          <option value="nature">Nature</option>
+          <option value="ocean">Ocean</option>
+          <option value="light">Light</option>
+        </select>
+      </footer>
     </div>
 
     <script src="/app.js" type="module"></script>

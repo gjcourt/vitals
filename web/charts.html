@@ -15,6 +15,7 @@
           <div class="subtitle" id="status">Loading…</div>
         </div>
         <div class="row gap">
+          <button class="ghost" id="logoutBtn" type="button">Log out</button>
           <a class="ghost" href="/">Home</a>
           <button class="ghost" id="refreshBtn" type="button">Refresh</button>
         </div>
@@ -22,15 +23,15 @@
 
       <main class="content">
         <section class="card">
-          <div class="cardTitle">Water (daily total)</div>
-          <canvas id="waterChart" width="640" height="240" style="width: 100%; height: 240px;"></canvas>
-          <div class="muted" id="waterNote">—</div>
-        </section>
-
-        <section class="card">
           <div class="cardTitle">Weight (latest per day)</div>
           <canvas id="weightChart" width="640" height="240" style="width: 100%; height: 240px;"></canvas>
           <div class="muted" id="weightNote">—</div>
+        </section>
+
+        <section class="card">
+          <div class="cardTitle">Water (daily total)</div>
+          <canvas id="waterChart" width="640" height="240" style="width: 100%; height: 240px;"></canvas>
+          <div class="muted" id="waterNote">—</div>
         </section>
 
         <section class="card">
@@ -48,6 +49,14 @@
           </div>
         </section>
       </main>
+
+        <span>Daily totals and latest daily weight.</span>
+        <select id="themeSelect" aria-label="Theme">
+          <option value="dark">Dark</option>
+          <option value="nature">Nature</option>
+          <option value="ocean">Ocean</option>
+          <option value="light">Light</option>
+        </select>
 
       <footer class="footer muted">Daily totals and latest daily weight.</footer>
     </div>
