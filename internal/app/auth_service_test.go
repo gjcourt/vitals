@@ -11,6 +11,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+const testUserAgent = "test-agent"
+
 type mockUserRepo struct {
 	getByUsernameFn func(ctx context.Context, username string) (*domain.User, error)
 	getByIDFn       func(ctx context.Context, id int64) (*domain.User, error)
@@ -109,8 +111,8 @@ func TestAuthService_Login_Success(t *testing.T) {
 	}
 
 	svc := NewAuthService(users, sessions)
-	// Add userAgent="test-agent", ip="127.0.0.1"
-	token, err := svc.Login(ctx, "testuser", password, "test-agent", "127.0.0.1")
+	// Add userAgent=testUserAgent, ip="127.0.0.1"
+	token, err := svc.Login(ctx, "testuser", password, testUserAgent, "127.0.0.1")
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -137,8 +139,8 @@ func TestAuthService_Login_InvalidPassword(t *testing.T) {
 	sessions := &mockSessionRepo{}
 	svc := NewAuthService(users, sessions)
 
-	// Add userAgent="test-agent", ip="127.0.0.1"
-	_, err := svc.Login(ctx, "testuser", "wrongpass", "test-agent", "127.0.0.1")
+	// Add userAgent=testUserAgent, ip="127.0.0.1"
+	_, err := svc.Login(ctx, "testuser", "wrongpass", testUserAgent, "127.0.0.1")
 	if err != ErrInvalidCredentials {
 		t.Errorf("expected ErrInvalidCredentials, got %v", err)
 	}
@@ -147,7 +149,7 @@ func TestAuthService_Login_InvalidPassword(t *testing.T) {
 func TestAuthService_ValidateSession_Valid(t *testing.T) {
 	ctx := context.Background()
 	token := "validtoken"
-	userAgent := "test-agent"
+	const userAgent = testUserAgent
 
 	sessions := &mockSessionRepo{
 		getByTokenFn: func(ctx context.Context, tok string) (*domain.Session, error) {
@@ -170,7 +172,7 @@ func TestAuthService_ValidateSession_Valid(t *testing.T) {
 	}
 
 	svc := NewAuthService(users, sessions)
-	// Add userAgent="test-agent"
+	// Add userAgent=testUserAgent
 	user, err := svc.ValidateSession(ctx, token, userAgent)
 
 	if err != nil {
@@ -184,7 +186,7 @@ func TestAuthService_ValidateSession_Valid(t *testing.T) {
 func TestAuthService_ValidateSession_Expired(t *testing.T) {
 	ctx := context.Background()
 	token := "expiredtoken"
-	userAgent := "test-agent"
+	userAgent := testUserAgent
 
 	deleted := false
 	sessions := &mockSessionRepo{
@@ -205,13 +207,33 @@ func TestAuthService_ValidateSession_Expired(t *testing.T) {
 	users := &mockUserRepo{}
 	svc := NewAuthService(users, sessions)
 
-	// Add userAgent="test-agent"
+	// Add userAgent=testUserAgent
 	_, err := svc.ValidateSession(ctx, token, userAgent)
 	if err != ErrSessionExpired {
 		t.Errorf("expected ErrSessionExpired, got %v", err)
 	}
 	if !deleted {
 		t.Error("expected session to be deleted")
+	}
+}
+
+func TestAuthService_ValidateSession_NotFound(t *testing.T) {
+	ctx := context.Background()
+	token := "notfoundtoken"
+	userAgent := testUserAgent
+
+	sessions := &mockSessionRepo{
+		getByTokenFn: func(ctx context.Context, tok string) (*domain.Session, error) {
+			return nil, nil
+		},
+	}
+
+	users := &mockUserRepo{}
+	svc := NewAuthService(users, sessions)
+
+	_, err := svc.ValidateSession(ctx, token, userAgent)
+	if err != ErrSessionNotFound {
+		t.Errorf("expected ErrSessionNotFound, got %v", err)
 	}
 }
 

@@ -71,7 +71,7 @@ func (s *AuthService) Logout(ctx context.Context, token string) error {
 // ValidateSession checks if a session token is valid and matches the user agent.
 func (s *AuthService) ValidateSession(ctx context.Context, token, userAgent string) (*domain.User, error) {
 	session, err := s.sessions.GetByToken(ctx, token)
-	if err != nil {
+	if err != nil || session == nil {
 		return nil, ErrSessionNotFound
 	}
 
