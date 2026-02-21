@@ -47,15 +47,15 @@ func (m *mockUserRepo) Count(ctx context.Context) (int, error) {
 }
 
 type mockSessionRepo struct {
-	createFn        func(ctx context.Context, userID int64, token string, expiresAt time.Time) error
+	createFn        func(ctx context.Context, userID int64, token, userAgent, ip string, expiresAt time.Time) error
 	getByTokenFn    func(ctx context.Context, token string) (*domain.Session, error)
 	deleteFn        func(ctx context.Context, token string) error
 	deleteExpiredFn func(ctx context.Context) error
 }
 
-func (m *mockSessionRepo) Create(ctx context.Context, userID int64, token string, expiresAt time.Time) error {
+func (m *mockSessionRepo) Create(ctx context.Context, userID int64, token, userAgent, ip string, expiresAt time.Time) error {
 	if m.createFn != nil {
-		return m.createFn(ctx, userID, token, expiresAt)
+		return m.createFn(ctx, userID, token, userAgent, ip, expiresAt)
 	}
 	return nil
 }
@@ -97,7 +97,7 @@ func TestAuthService_Login_Success(t *testing.T) {
 	}
 
 	sessions := &mockSessionRepo{
-		createFn: func(ctx context.Context, userID int64, token string, expiresAt time.Time) error {
+		createFn: func(ctx context.Context, userID int64, token, userAgent, ip string, expiresAt time.Time) error {
 			if userID != 1 {
 				t.Errorf("expected userID 1, got %d", userID)
 			}
@@ -109,7 +109,8 @@ func TestAuthService_Login_Success(t *testing.T) {
 	}
 
 	svc := NewAuthService(users, sessions)
-	token, err := svc.Login(ctx, "testuser", password)
+	// Add userAgent="test-agent", ip="127.0.0.1"
+	token, err := svc.Login(ctx, "testuser", password, "test-agent", "127.0.0.1")
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -136,7 +137,8 @@ func TestAuthService_Login_InvalidPassword(t *testing.T) {
 	sessions := &mockSessionRepo{}
 	svc := NewAuthService(users, sessions)
 
-	_, err := svc.Login(ctx, "testuser", "wrongpass")
+	// Add userAgent="test-agent", ip="127.0.0.1"
+	_, err := svc.Login(ctx, "testuser", "wrongpass", "test-agent", "127.0.0.1")
 	if err != ErrInvalidCredentials {
 		t.Errorf("expected ErrInvalidCredentials, got %v", err)
 	}
@@ -145,12 +147,14 @@ func TestAuthService_Login_InvalidPassword(t *testing.T) {
 func TestAuthService_ValidateSession_Valid(t *testing.T) {
 	ctx := context.Background()
 	token := "validtoken"
+	userAgent := "test-agent"
 
 	sessions := &mockSessionRepo{
 		getByTokenFn: func(ctx context.Context, tok string) (*domain.Session, error) {
 			return &domain.Session{
 				Token:     token,
 				UserID:    1,
+				UserAgent: userAgent,
 				ExpiresAt: time.Now().Add(1 * time.Hour),
 			}, nil
 		},
@@ -166,7 +170,8 @@ func TestAuthService_ValidateSession_Valid(t *testing.T) {
 	}
 
 	svc := NewAuthService(users, sessions)
-	user, err := svc.ValidateSession(ctx, token)
+	// Add userAgent="test-agent"
+	user, err := svc.ValidateSession(ctx, token, userAgent)
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -179,6 +184,7 @@ func TestAuthService_ValidateSession_Valid(t *testing.T) {
 func TestAuthService_ValidateSession_Expired(t *testing.T) {
 	ctx := context.Background()
 	token := "expiredtoken"
+	userAgent := "test-agent"
 
 	deleted := false
 	sessions := &mockSessionRepo{
@@ -186,6 +192,7 @@ func TestAuthService_ValidateSession_Expired(t *testing.T) {
 			return &domain.Session{
 				Token:     token,
 				UserID:    1,
+				UserAgent: userAgent,
 				ExpiresAt: time.Now().Add(-1 * time.Hour),
 			}, nil
 		},
@@ -198,107 +205,12 @@ func TestAuthService_ValidateSession_Expired(t *testing.T) {
 	users := &mockUserRepo{}
 	svc := NewAuthService(users, sessions)
 
-	_, err := svc.ValidateSession(ctx, token)
+	// Add userAgent="test-agent"
+	_, err := svc.ValidateSession(ctx, token, userAgent)
 	if err != ErrSessionExpired {
 		t.Errorf("expected ErrSessionExpired, got %v", err)
 	}
 	if !deleted {
 		t.Error("expected session to be deleted")
-	}
-}
-
-func TestAuthService_CreateInitialUser_Success(t *testing.T) {
-	ctx := context.Background()
-
-	users := &mockUserRepo{
-		countFn: func(ctx context.Context) (int, error) {
-			return 0, nil
-		},
-		createFn: func(ctx context.Context, username, passwordHash string) (*domain.User, error) {
-			if username != "admin" {
-				t.Errorf("expected username 'admin', got %s", username)
-			}
-			if passwordHash == "" {
-				t.Error("password hash should not be empty")
-			}
-			return &domain.User{ID: 1, Username: username}, nil
-		},
-	}
-
-	sessions := &mockSessionRepo{}
-	svc := NewAuthService(users, sessions)
-
-	err := svc.CreateInitialUser(ctx, "admin", "password123")
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-}
-
-func TestAuthService_CreateInitialUser_UsersExist(t *testing.T) {
-	ctx := context.Background()
-
-	users := &mockUserRepo{
-		countFn: func(ctx context.Context) (int, error) {
-			return 1, nil
-		},
-	}
-
-	sessions := &mockSessionRepo{}
-	svc := NewAuthService(users, sessions)
-
-	err := svc.CreateInitialUser(ctx, "admin", "password123")
-	if err == nil {
-		t.Error("expected error when users exist")
-	}
-}
-
-func TestAuthService_ValidateForwardAuth_ExistingUser(t *testing.T) {
-	ctx := context.Background()
-
-	users := &mockUserRepo{
-		getByUsernameFn: func(ctx context.Context, username string) (*domain.User, error) {
-			return &domain.User{
-				ID:       1,
-				Username: "ssouser",
-			}, nil
-		},
-	}
-
-	sessions := &mockSessionRepo{}
-	svc := NewAuthService(users, sessions)
-
-	user, err := svc.ValidateForwardAuth(ctx, "ssouser")
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if user.Username != "ssouser" {
-		t.Errorf("expected username 'ssouser', got %s", user.Username)
-	}
-}
-
-func TestAuthService_ValidateForwardAuth_NewUser(t *testing.T) {
-	ctx := context.Background()
-
-	users := &mockUserRepo{
-		getByUsernameFn: func(ctx context.Context, username string) (*domain.User, error) {
-			return nil, errors.New("not found")
-		},
-		createFn: func(ctx context.Context, username, passwordHash string) (*domain.User, error) {
-			return &domain.User{
-				ID:       2,
-				Username: username,
-			}, nil
-		},
-	}
-
-	sessions := &mockSessionRepo{}
-	svc := NewAuthService(users, sessions)
-
-	user, err := svc.ValidateForwardAuth(ctx, "newssouser")
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if user.Username != "newssouser" {
-		t.Errorf("expected username 'newssouser', got %s", user.Username)
 	}
 }

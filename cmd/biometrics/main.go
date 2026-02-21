@@ -71,10 +71,6 @@ func main() {
 	authSvc := app.NewAuthService(userRepo, sessionRepo)
 
 	srv := adapthttp.New(weightSvc, waterSvc, chartsSvc, authSvc, webDir)
-	// Disable auth for in-memory DB to make local dev/testing easier
-	if useMemory {
-		srv.WithoutAuth()
-	}
 	h := srv.Handler()
 
 	log.Printf("listening on %s", addr)

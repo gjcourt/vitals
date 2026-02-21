@@ -4,7 +4,11 @@ go 1.25.5
 
 require github.com/lib/pq v1.11.1
 
-require golang.org/x/crypto v0.47.0
+require (
+	github.com/coreos/go-oidc/v3 v3.17.0
+	golang.org/x/crypto v0.47.0
+	golang.org/x/oauth2 v0.35.0
+)
 
 require (
 	4d63.com/gocheckcompilerdirectives v1.3.0 // indirect
@@ -68,6 +72,7 @@ require (
 	github.com/fzipp/gocyclo v0.6.0 // indirect
 	github.com/ghostiam/protogetter v0.3.20 // indirect
 	github.com/go-critic/go-critic v0.14.3 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
 	github.com/go-toolsmith/astcast v1.1.0 // indirect
 	github.com/go-toolsmith/astcopy v1.1.0 // indirect
 	github.com/go-toolsmith/astequal v1.2.0 // indirect

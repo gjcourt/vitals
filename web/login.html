@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biometrics - Login</title>
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        .auth-container {
+            max-width: 400px;
+            margin: 2rem auto;
+            padding: 2rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .btn-primary {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-secondary {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 0.5rem;
+            text-align: center;
+            display: block;
+            text-decoration: none;
+        }
+        .error-message {
+            color: red;
+            margin-bottom: 1rem;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <h2>Login</h2>
+        <div id="error-message" class="error-message"></div>
+        <form id="login-form" action="/api/auth/login" method="POST">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit" class="btn-primary">Login</button>
+        </form>
+
+        <div id="sso-options" style="margin-top: 1rem; border-top: 1px solid #eee; padding-top: 1rem; display: none;">
+            <a href="/api/auth/oidc/login" class="btn-secondary" style="background-color: #333;">Login with SSO</a>
+        </div>
+
+        <p style="margin-top: 1rem; text-align: center;">
+            Don't have an account? <a href="/signup">Sign up</a>
+        </p>
+    </div>
+
+    <script>
+        // Check if SSO is enabled via query param or API config (handled server-side for now)
+        // Simple JS to handle form submission via fetch if we want SPA feel, or standard POST for redirect
+        // Standard POST is easier for redirects unless we want JSON response.
+        // Current handlers return JSON. So let's handle JSON response and redirect.
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    window.location.href = '/';
+                } else {
+                    const error = await response.text();
+                    document.getElementById('error-message').textContent = error || 'Login failed';
+                    document.getElementById('error-message').style.display = 'block';
+                }
+            } catch (err) {
+                console.error(err);
+                document.getElementById('error-message').textContent = 'Network error';
+                document.getElementById('error-message').style.display = 'block';
+            }
+        });
+
+        // Check if SSO is available (we can inject this value or check endpoint)
+        fetch('/api/auth/config').then(res => res.json()).then(config => {
+            if (config.sso_enabled) {
+                document.getElementById('sso-options').style.display = 'block';
+            }
+        }).catch(() => {});
+    </script>
+</body>
+</html>

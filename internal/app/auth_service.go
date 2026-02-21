@@ -40,7 +40,7 @@ func NewAuthService(users domain.UserRepository, sessions domain.SessionReposito
 }
 
 // Login authenticates a user and creates a session.
-func (s *AuthService) Login(ctx context.Context, username, password string) (string, error) {
+func (s *AuthService) Login(ctx context.Context, username, password, userAgent, ip string) (string, error) {
 	user, err := s.users.GetByUsername(ctx, username)
 	if err != nil {
 		return "", ErrInvalidCredentials
@@ -56,7 +56,7 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (str
 	}
 
 	expiresAt := time.Now().Add(24 * time.Hour)
-	if err := s.sessions.Create(ctx, user.ID, token, expiresAt); err != nil {
+	if err := s.sessions.Create(ctx, user.ID, token, userAgent, ip, expiresAt); err != nil {
 		return "", err
 	}
 
@@ -68,14 +68,19 @@ func (s *AuthService) Logout(ctx context.Context, token string) error {
 	return s.sessions.Delete(ctx, token)
 }
 
-// ValidateSession checks if a session token is valid.
-func (s *AuthService) ValidateSession(ctx context.Context, token string) (*domain.User, error) {
+// ValidateSession checks if a session token is valid and matches the user agent.
+func (s *AuthService) ValidateSession(ctx context.Context, token, userAgent string) (*domain.User, error) {
 	session, err := s.sessions.GetByToken(ctx, token)
 	if err != nil {
 		return nil, ErrSessionNotFound
 	}
 
 	if time.Now().After(session.ExpiresAt) {
+		_ = s.sessions.Delete(ctx, token)
+		return nil, ErrSessionExpired
+	}
+
+	if session.UserAgent != userAgent {
 		_ = s.sessions.Delete(ctx, token)
 		return nil, ErrSessionExpired
 	}
@@ -125,6 +130,35 @@ func (s *AuthService) ValidateForwardAuth(ctx context.Context, remoteUser string
 	}
 
 	return user, nil
+}
+
+// LoginWithUser creates a session for an already authenticated user (e.g. via SSO).
+func (s *AuthService) LoginWithUser(ctx context.Context, username, userAgent, ip string) (string, error) {
+	user, err := s.users.GetByUsername(ctx, username)
+	if err != nil {
+		// Auto-provision if missing. Use empty password hash as they login via SSO.
+		// Or random password.
+		user, err = s.users.Create(ctx, username, "")
+		if err != nil {
+			// Try getting again if creation failed due to race (e.g. unique constraint)
+			user, err = s.users.GetByUsername(ctx, username)
+			if err != nil {
+				return "", err
+			}
+		}
+	}
+
+	token, err := generateToken()
+	if err != nil {
+		return "", err
+	}
+
+	expiresAt := time.Now().Add(24 * time.Hour)
+	if err := s.sessions.Create(ctx, user.ID, token, userAgent, ip, expiresAt); err != nil {
+		return "", err
+	}
+
+	return token, nil
 }
 
 func generateToken() (string, error) {
