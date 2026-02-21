@@ -72,10 +72,10 @@ func NewSessionRepo(db *DB) *SessionRepo {
 }
 
 // Create creates a new session.
-func (r *SessionRepo) Create(ctx context.Context, userID int64, token string, expiresAt time.Time) error {
+func (r *SessionRepo) Create(ctx context.Context, userID int64, token, userAgent, ip string, expiresAt time.Time) error {
 	_, err := r.db.sql.ExecContext(ctx,
-		"INSERT INTO sessions (user_id, token, expires_at, created_at) VALUES ($1, $2, $3, $4)",
-		userID, token, expiresAt, time.Now(),
+		"INSERT INTO sessions (user_id, token, user_agent, ip, expires_at, created_at) VALUES ($1, $2, $3, $4, $5, $6)",
+		userID, token, userAgent, ip, expiresAt, time.Now(),
 	)
 	return err
 }
@@ -84,9 +84,9 @@ func (r *SessionRepo) Create(ctx context.Context, userID int64, token string, ex
 func (r *SessionRepo) GetByToken(ctx context.Context, token string) (*domain.Session, error) {
 	var s domain.Session
 	err := r.db.sql.QueryRowContext(ctx,
-		"SELECT token, user_id, expires_at, created_at FROM sessions WHERE token = $1",
+		"SELECT token, user_id, user_agent, ip, expires_at, created_at FROM sessions WHERE token = $1",
 		token,
-	).Scan(&s.Token, &s.UserID, &s.ExpiresAt, &s.CreatedAt)
+	).Scan(&s.Token, &s.UserID, &s.UserAgent, &s.IP, &s.ExpiresAt, &s.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}

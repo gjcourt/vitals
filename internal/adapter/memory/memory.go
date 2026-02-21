@@ -304,13 +304,15 @@ func (db *DB) NewSessionRepo() *SessionRepo {
 }
 
 // Create creates a new session.
-func (r *SessionRepo) Create(ctx context.Context, userID int64, token string, expiresAt time.Time) error {
+func (r *SessionRepo) Create(ctx context.Context, userID int64, token, userAgent, ip string, expiresAt time.Time) error {
 	r.db.mu.Lock()
 	defer r.db.mu.Unlock()
 
 	r.db.sessions[token] = &domain.Session{
 		Token:     token,
 		UserID:    userID,
+		UserAgent: userAgent,
+		IP:        ip,
 		ExpiresAt: expiresAt,
 		CreatedAt: time.Now().UTC(),
 	}

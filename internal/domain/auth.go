@@ -18,6 +18,8 @@ type User struct {
 type Session struct {
 	Token     string
 	UserID    int64
+	UserAgent string
+	IP        string
 	ExpiresAt time.Time
 	CreatedAt time.Time
 }
@@ -32,7 +34,7 @@ type UserRepository interface {
 
 // SessionRepository defines the port for session persistence operations.
 type SessionRepository interface {
-	Create(ctx context.Context, userID int64, token string, expiresAt time.Time) error
+	Create(ctx context.Context, userID int64, token, userAgent, ip string, expiresAt time.Time) error
 	GetByToken(ctx context.Context, token string) (*Session, error)
 	Delete(ctx context.Context, token string) error
 	DeleteExpired(ctx context.Context) error

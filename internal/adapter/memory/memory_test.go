@@ -138,7 +138,7 @@ func TestSessionRepository(t *testing.T) {
 	repo := db.NewSessionRepo()
 	ctx := context.Background()
 
-	err := repo.Create(ctx, 1, "token123", time.Now().Add(time.Hour))
+	err := repo.Create(ctx, 1, "token123", "test-agent", "127.0.0.1", time.Now().Add(time.Hour))
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}

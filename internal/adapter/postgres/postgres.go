@@ -68,6 +68,8 @@ func (d *DB) migrate(ctx context.Context) error {
 		"ALTER TABLE water_events ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES users(id);",
 		"CREATE INDEX IF NOT EXISTS idx_weight_events_user_id ON weight_events(user_id);",
 		"CREATE INDEX IF NOT EXISTS idx_water_events_user_id ON water_events(user_id);",
+		"ALTER TABLE sessions ADD COLUMN IF NOT EXISTS user_agent TEXT;",
+		"ALTER TABLE sessions ADD COLUMN IF NOT EXISTS ip TEXT;",
 	}
 	for _, stmt := range alterStmts {
 		if _, err := d.sql.ExecContext(ctx, stmt); err != nil {

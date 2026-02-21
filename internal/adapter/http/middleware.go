@@ -49,7 +49,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		user, err := s.authSvc.ValidateSession(r.Context(), cookie.Value)
+		user, err := s.authSvc.ValidateSession(r.Context(), cookie.Value, r.UserAgent())
 		if err == app.ErrSessionNotFound || err == app.ErrSessionExpired {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -84,4 +84,67 @@ type loggingResponseWriter struct {
 func (rw *loggingResponseWriter) WriteHeader(code int) {
 	rw.code = code
 	rw.ResponseWriter.WriteHeader(code)
+}
+
+// requireAuthHTML enforces authentication for HTML pages, redirecting to login if needed.
+func (s *Server) requireAuthHTML(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if s.disableAuth || isPublicPath(r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Check for Authelia forward auth header first
+		if remoteUser := r.Header.Get("Remote-User"); remoteUser != "" {
+			user, err := s.authSvc.ValidateForwardAuth(r.Context(), remoteUser)
+			if err == nil && user != nil {
+				ctx := context.WithValue(r.Context(), userContextKey, user)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+		}
+
+		// Check session cookie
+		cookie, err := r.Cookie("session")
+		if err != nil {
+			http.Redirect(w, r, "/login", http.StatusFound)
+			return
+		}
+
+		user, err := s.authSvc.ValidateSession(r.Context(), cookie.Value, r.UserAgent())
+		if err != nil {
+			http.Redirect(w, r, "/login", http.StatusFound)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), userContextKey, user)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func isPublicPath(path string) bool {
+	// Public paths
+	if path == "/login" || path == "/signup" || path == "/health" {
+		return true
+	}
+
+	// Public prefixes
+	if len(path) >= 6 && path[:6] == "/auth/" {
+		return true
+	}
+
+	// Static assets
+	ext := ""
+	for i := len(path) - 1; i >= 0 && path[i] != '/'; i-- {
+		if path[i] == '.' {
+			ext = path[i:]
+			break
+		}
+	}
+	// Allow standard assets
+	if ext == ".css" || ext == ".js" || ext == ".ico" || ext == ".png" || ext == ".jpg" || ext == ".svg" {
+		return true
+	}
+
+	return false
 }

@@ -117,7 +117,7 @@ func (m *mockUserRepo) Count(ctx context.Context) (int, error) {
 
 type mockSessionRepo struct{}
 
-func (m *mockSessionRepo) Create(ctx context.Context, userID int64, token string, expiresAt time.Time) error {
+func (m *mockSessionRepo) Create(ctx context.Context, userID int64, token, userAgent, ip string, expiresAt time.Time) error {
 	return nil
 }
 
