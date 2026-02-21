@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0b1220" />
     <title>Vitals</title>
+    <script>
+      (function() {
+        var saved = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', saved);
+      })();
+    </script>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -15,8 +21,9 @@
           <div class="subtitle" id="status">Loading…</div>
         </div>
         <div class="row gap">
-          <a class="ghost" href="/charts">Charts</a>
+          <button class="ghost" id="logoutBtn" type="button">Log out</button>
           <button class="ghost" id="refreshBtn" type="button">Refresh</button>
+          <a class="button ghost" href="/charts" style="text-decoration:none; display:flex; align-items:center;">Charts</a>
         </div>
       </header>
 
@@ -69,7 +76,16 @@
         </section>
       </main>
 
-      <footer class="footer muted">Stored locally in SQLite on the server.</footer>
+      <footer class="footer muted">
+        <span>Stored securely on the server.</span>
+        <select id="themeSelect" aria-label="Theme">
+          <option value="dark">Dark</option>
+          <option value="plum">Plum</option>
+          <option value="nature">Nature</option>
+          <option value="ocean">Ocean</option>
+          <option value="light">Light</option>
+        </select>
+      </footer>
     </div>
 
     <script src="/app.js" type="module"></script>

@@ -1,5 +1,8 @@
+import { initTheme } from './theme.js';
+
 const statusEl = document.getElementById('status');
 const refreshBtn = document.getElementById('refreshBtn');
+const logoutBtn = document.getElementById('logoutBtn');
 
 const weightValueEl = document.getElementById('weightValue');
 const unitKgBtn = document.getElementById('unitKg');
@@ -80,6 +83,11 @@ undoWeightBtn.addEventListener('click', async ()=>{
     toast('No weight entry to undo');
   }
 });
+logoutBtn.addEventListener('click', async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    location.reload();
+});
+
 
 refreshBtn.addEventListener('click', refresh);
 
@@ -197,5 +205,6 @@ function toast(msg){
 }
 
 setUnit(unit);
+initTheme();
 setAddDelta(addDelta);
 refresh();
