@@ -53,11 +53,20 @@ lint:
 REGISTRY ?= ghcr.io
 REGISTRY_USER ?= gjcourt
 IMAGE_TAG ?= $(shell date +%Y-%m-%d)
-PLATFORM ?= linux/amd64
+PLATFORM ?= linux/amd64,linux/arm64
 
 .PHONY: image
 image:
 	REGISTRY=$(REGISTRY) REGISTRY_USER=$(REGISTRY_USER) IMAGE_TAG=$(IMAGE_TAG) PLATFORM=$(PLATFORM) ./scripts/build_and_push_image.sh
+
+.PHONY: list-images
+list-images:
+	@echo "Fetching images for $(REGISTRY)/$(REGISTRY_USER)/$(APP_NAME)..."
+	@gh api \
+		-H "Accept: application/vnd.github+json" \
+		-H "X-GitHub-Api-Version: 2022-11-28" \
+		/users/$(REGISTRY_USER)/packages/container/$(APP_NAME)/versions \
+		--jq '.[].metadata.container.tags[]' | sort -r
 
 # Build for multiple platforms
 .PHONY: build-all
