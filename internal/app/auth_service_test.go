@@ -214,3 +214,22 @@ func TestAuthService_ValidateSession_Expired(t *testing.T) {
 		t.Error("expected session to be deleted")
 	}
 }
+
+func TestAuthService_Login_UserNotFound(t *testing.T) {
+	ctx := context.Background()
+
+	users := &mockUserRepo{
+		getByUsernameFn: func(ctx context.Context, username string) (*domain.User, error) {
+			return nil, nil
+		},
+	}
+
+	sessions := &mockSessionRepo{}
+
+	svc := NewAuthService(users, sessions)
+
+	_, err := svc.Login(ctx, "nonexistent", "password", "agent", "127.0.0.1")
+	if err != ErrInvalidCredentials {
+		t.Errorf("expected ErrInvalidCredentials, got %v", err)
+	}
+}

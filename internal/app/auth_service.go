@@ -42,7 +42,7 @@ func NewAuthService(users domain.UserRepository, sessions domain.SessionReposito
 // Login authenticates a user and creates a session.
 func (s *AuthService) Login(ctx context.Context, username, password, userAgent, ip string) (string, error) {
 	user, err := s.users.GetByUsername(ctx, username)
-	if err != nil {
+	if err != nil || user == nil {
 		return "", ErrInvalidCredentials
 	}
 
