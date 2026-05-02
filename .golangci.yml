@@ -18,6 +18,7 @@ linters:
     - misspell
     - unconvert
     - unparam
+    - depguard
   settings:
     govet:
       enable-all: true
@@ -32,6 +33,30 @@ linters:
           disabled: false
         - name: package-comments
           disabled: false
+    depguard:
+      rules:
+        # domain must not import adapter implementations.
+        domain-no-adapters:
+          files:
+            - "**/internal/domain/**/*.go"
+          deny:
+            - pkg: "vitals/internal/adapter"
+              desc: "domain must not import adapter implementations"
+            - pkg: "vitals/internal/app"
+              desc: "domain must not import the app layer"
+
+        # app layer must not depend on adapter implementations; use domain
+        # interfaces (repository ports) instead.
+        app-no-adapters:
+          files:
+            - "**/internal/app/**/*.go"
+          deny:
+            - pkg: "vitals/internal/adapter"
+              desc: "app layer must depend only on domain interfaces, not adapter implementations"
+
+        # Pending: adapters-no-app rule is blocked by adapter/http importing
+        # app/ directly (handlers_auth.go, server.go, middleware.go).
+        # Add after introducing a formal inbound port and threading it through.
 
 formatters:
   enable:
