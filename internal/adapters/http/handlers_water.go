@@ -10,7 +10,10 @@ func (s *Server) handleWaterToday(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	user := userFromContext(r)
+	user := requireUser(w, r)
+	if user == nil {
+		return
+	}
 	today := localDayString(time.Now())
 	total, err := s.water.GetTodayTotal(r.Context(), user.ID, today)
 	if err != nil {
@@ -25,7 +28,10 @@ func (s *Server) handleWaterEvent(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	user := userFromContext(r)
+	user := requireUser(w, r)
+	if user == nil {
+		return
+	}
 	var body struct {
 		DeltaLiters float64 `json:"deltaLiters"`
 	}
@@ -46,7 +52,10 @@ func (s *Server) handleWaterRecent(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	user := userFromContext(r)
+	user := requireUser(w, r)
+	if user == nil {
+		return
+	}
 	limit := intQuery(r, "limit", 20)
 	items, err := s.water.ListRecent(r.Context(), user.ID, limit)
 	if err != nil {
@@ -61,7 +70,10 @@ func (s *Server) handleWaterUndoLast(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	user := userFromContext(r)
+	user := requireUser(w, r)
+	if user == nil {
+		return
+	}
 	undone, id, err := s.water.UndoLast(r.Context(), user.ID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)

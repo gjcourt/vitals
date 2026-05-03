@@ -112,10 +112,17 @@ func (s *authService) ValidateForwardAuth(ctx context.Context, remoteUser string
 
 	user, err := s.users.GetByUsername(ctx, remoteUser)
 	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		// First-time forward-auth request: create the user on demand.
 		user, err = s.users.Create(ctx, remoteUser, "")
 		if err != nil {
 			return nil, err
 		}
+	}
+	if user == nil {
+		return nil, domain.ErrUserNotFound
 	}
 
 	return user, nil
@@ -125,13 +132,21 @@ func (s *authService) ValidateForwardAuth(ctx context.Context, remoteUser string
 func (s *authService) LoginWithUser(ctx context.Context, username, userAgent, ip string) (string, error) {
 	user, err := s.users.GetByUsername(ctx, username)
 	if err != nil {
+		return "", err
+	}
+	if user == nil {
 		user, err = s.users.Create(ctx, username, "")
 		if err != nil {
-			user, err = s.users.GetByUsername(ctx, username)
-			if err != nil {
+			// Possible unique-violation race: re-fetch and use existing record.
+			fetched, fetchErr := s.users.GetByUsername(ctx, username)
+			if fetchErr != nil || fetched == nil {
 				return "", err
 			}
+			user = fetched
 		}
+	}
+	if user == nil {
+		return "", domain.ErrUserNotFound
 	}
 
 	token, err := generateToken()

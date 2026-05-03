@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"vitals/internal/domain"
@@ -29,7 +30,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token, err := s.authSvc.Login(r.Context(), req.Username, req.Password, r.UserAgent(), r.RemoteAddr)
-	if err == domain.ErrInvalidCredentials {
+	if errors.Is(err, domain.ErrInvalidCredentials) {
 		http.Error(w, "invalid credentials", http.StatusUnauthorized)
 		return
 	}

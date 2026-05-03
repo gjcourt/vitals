@@ -11,7 +11,10 @@ func (s *Server) handleChartsDaily(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user := userFromContext(r)
+	user := requireUser(w, r)
+	if user == nil {
+		return
+	}
 	days := intQuery(r, "days", 90)
 	unit := r.URL.Query().Get("unit")
 	if unit == "" {

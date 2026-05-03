@@ -4,6 +4,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"vitals/internal/domain"
@@ -16,7 +17,7 @@ func (d *DB) GetByUsername(ctx context.Context, username string) (*domain.User, 
 		"SELECT id, username, password_hash, created_at FROM users WHERE username = $1",
 		username,
 	).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.CreatedAt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -32,7 +33,7 @@ func (d *DB) GetByID(ctx context.Context, id int64) (*domain.User, error) {
 		"SELECT id, username, password_hash, created_at FROM users WHERE id = $1",
 		id,
 	).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.CreatedAt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -87,7 +88,7 @@ func (r *SessionRepo) GetByToken(ctx context.Context, token string) (*domain.Ses
 		"SELECT token, user_id, user_agent, ip, expires_at, created_at FROM sessions WHERE token = $1",
 		token,
 	).Scan(&s.Token, &s.UserID, &s.UserAgent, &s.IP, &s.ExpiresAt, &s.CreatedAt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {

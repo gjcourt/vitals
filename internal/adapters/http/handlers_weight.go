@@ -7,7 +7,10 @@ import (
 
 func (s *Server) handleWeightToday(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	user := userFromContext(r)
+	user := requireUser(w, r)
+	if user == nil {
+		return
+	}
 	today := localDayString(time.Now())
 
 	switch r.Method {
@@ -45,7 +48,10 @@ func (s *Server) handleWeightRecent(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	user := userFromContext(r)
+	user := requireUser(w, r)
+	if user == nil {
+		return
+	}
 	limit := intQuery(r, "limit", 14)
 	items, err := s.weight.ListRecent(r.Context(), user.ID, limit)
 	if err != nil {
@@ -60,7 +66,10 @@ func (s *Server) handleWeightUndoLast(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	user := userFromContext(r)
+	user := requireUser(w, r)
+	if user == nil {
+		return
+	}
 	deleted, entry, today, err := s.weight.UndoLast(r.Context(), user.ID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)

@@ -2,6 +2,7 @@ package adapthttp
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"time"
@@ -14,11 +15,24 @@ type contextKey string
 const userContextKey contextKey = "user"
 
 // userFromContext returns the authenticated user from the request context.
+// Returns nil when no user is associated with the request or when the value
+// stored under userContextKey is itself nil.
 func userFromContext(r *http.Request) *domain.User {
-	if u, ok := r.Context().Value(userContextKey).(*domain.User); ok {
+	if u, ok := r.Context().Value(userContextKey).(*domain.User); ok && u != nil {
 		return u
 	}
 	return nil
+}
+
+// requireUser fetches the authenticated user from context or writes a 401
+// response and returns nil. Handlers should bail out when nil is returned.
+func requireUser(w http.ResponseWriter, r *http.Request) *domain.User {
+	u := userFromContext(r)
+	if u == nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return nil
+	}
+	return u
 }
 
 // authMiddleware validates session tokens and forward auth headers.
@@ -48,7 +62,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 		}
 
 		user, err := s.authSvc.ValidateSession(r.Context(), cookie.Value, r.UserAgent())
-		if err == domain.ErrSessionNotFound || err == domain.ErrSessionExpired {
+		if errors.Is(err, domain.ErrSessionNotFound) || errors.Is(err, domain.ErrSessionExpired) {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
