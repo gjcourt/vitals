@@ -6,25 +6,27 @@ import (
 	"time"
 
 	"vitals/internal/domain"
+	"vitals/internal/ports/inbound"
+	"vitals/internal/ports/outbound"
 )
 
-// WaterService encapsulates water-tracking use cases.
-type WaterService struct {
-	repo domain.WaterRepository
+// waterService implements inbound.WaterService.
+type waterService struct {
+	repo outbound.WaterRepository
 }
 
 // NewWaterService creates a WaterService backed by the given repository.
-func NewWaterService(repo domain.WaterRepository) *WaterService {
-	return &WaterService{repo: repo}
+func NewWaterService(repo outbound.WaterRepository) inbound.WaterService {
+	return &waterService{repo: repo}
 }
 
 // GetTodayTotal returns the total water intake in liters for the given local day.
-func (s *WaterService) GetTodayTotal(ctx context.Context, userID int64, today string) (float64, error) {
+func (s *waterService) GetTodayTotal(ctx context.Context, userID int64, today string) (float64, error) {
 	return s.repo.WaterTotalForLocalDay(ctx, userID, today)
 }
 
 // RecordEvent validates and stores a water intake event.
-func (s *WaterService) RecordEvent(ctx context.Context, userID int64, deltaLiters float64) (int64, error) {
+func (s *waterService) RecordEvent(ctx context.Context, userID int64, deltaLiters float64) (int64, error) {
 	if deltaLiters == 0 || deltaLiters < -10 || deltaLiters > 10 {
 		return 0, errors.New("deltaLiters must be non-zero and within [-10, 10]")
 	}
@@ -32,12 +34,12 @@ func (s *WaterService) RecordEvent(ctx context.Context, userID int64, deltaLiter
 }
 
 // ListRecent returns the most recent water events up to limit.
-func (s *WaterService) ListRecent(ctx context.Context, userID int64, limit int) ([]domain.WaterEvent, error) {
+func (s *waterService) ListRecent(ctx context.Context, userID int64, limit int) ([]domain.WaterEvent, error) {
 	return s.repo.ListRecentWaterEvents(ctx, userID, limit)
 }
 
 // UndoLast deletes the most recent water event.
-func (s *WaterService) UndoLast(ctx context.Context, userID int64) (bool, int64, error) {
+func (s *waterService) UndoLast(ctx context.Context, userID int64) (bool, int64, error) {
 	items, err := s.repo.ListRecentWaterEvents(ctx, userID, 1)
 	if err != nil {
 		return false, 0, err

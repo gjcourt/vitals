@@ -21,14 +21,22 @@ Pre-push: `make all`
 
 Hexagonal architecture (ports & adapters). Entry point: `cmd/vitals/main.go`.
 
-- `internal/domain/` — entity types and core business rules (entries, users).
-- `internal/app/` — application orchestration; calls into domain and storage adapters.
-- `internal/adapter/http/` — driving adapter (HTTP server, handlers, templates).
-- `internal/adapter/memory/` — in-memory storage adapter.
-- `internal/adapter/postgres/` — PostgreSQL storage adapter.
-- `web/` — frontend (HTML templates, CSS, vanilla JS).
+```
+cmd/vitals/           — composition root; wires adapters → app → handler
+internal/domain/      — entity types and domain-level errors (no infrastructure imports)
+internal/ports/
+  inbound/            — driving ports (AuthService, WaterService, WeightService, ChartsService)
+  outbound/           — driven ports (UserRepository, SessionRepository, WaterRepository, WeightRepository)
+internal/app/         — use-case layer implementing inbound ports via outbound ports
+internal/adapters/
+  http/               — driving HTTP adapter (package adapthttp)
+  memory/             — in-memory storage adapter
+  postgres/           — PostgreSQL storage adapter
+internal/testdoubles/ — function-field fakes for outbound ports
+web/                  — frontend (HTML templates, CSS, vanilla JS)
+```
 
-Today there is no explicit `internal/ports/` package; storage adapters implement domain interfaces directly. See `docs/architecture/` for the overview.
+See `docs/architecture/` for the overview.
 
 ## Conventions
 
@@ -40,14 +48,17 @@ Today there is no explicit `internal/ports/` package; storage adapters implement
 
 ## Invariants
 
-- `internal/domain/` must not import any third-party packages outside stdlib.
-- `internal/app/` must not import `internal/adapter/` directly — it depends on interfaces.
+- `internal/domain/` must not import any third-party packages outside stdlib, and must not import ports/app/adapters.
+- `internal/ports/` must only import `internal/domain/`.
+- `internal/app/` must not import `internal/adapters/` — depend on port interfaces only.
+- `internal/adapters/` must not import `internal/app/` — depend on inbound port interfaces only.
 - The compiled binary lives at `./vitals`; never committed.
 
 ## What NOT to Do
 
 - Do not import `database/sql` or HTTP types from `internal/domain/`.
-- Do not import `internal/adapter/` from `internal/app/` — depend on the interface, not the implementation.
+- Do not import `internal/adapters/` from `internal/app/` — depend on outbound port interfaces.
+- Do not import `internal/app/` from `internal/adapters/` — depend on inbound port interfaces.
 - Do not skip `make lint` and `make test` before committing.
 - Do not commit credentials or local DB dumps.
 

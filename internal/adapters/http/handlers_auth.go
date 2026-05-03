@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"vitals/internal/app"
+	"vitals/internal/domain"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 )
@@ -29,7 +29,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token, err := s.authSvc.Login(r.Context(), req.Username, req.Password, r.UserAgent(), r.RemoteAddr)
-	if err == app.ErrInvalidCredentials {
+	if err == domain.ErrInvalidCredentials {
 		http.Error(w, "invalid credentials", http.StatusUnauthorized)
 		return
 	}

@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	adapthttp "vitals/internal/adapter/http"
+	adapthttp "vitals/internal/adapters/http"
 	"vitals/internal/app"
 	"vitals/internal/domain"
 )

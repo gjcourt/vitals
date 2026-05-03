@@ -35,28 +35,39 @@ linters:
           disabled: false
     depguard:
       rules:
-        # domain must not import adapter implementations.
-        domain-no-adapters:
+        domain-no-other-internal:
           files:
             - "**/internal/domain/**/*.go"
           deny:
-            - pkg: "vitals/internal/adapter"
-              desc: "domain must not import adapter implementations"
+            - pkg: "vitals/internal/ports"
+              desc: "domain must not import ports"
             - pkg: "vitals/internal/app"
               desc: "domain must not import the app layer"
+            - pkg: "vitals/internal/adapters"
+              desc: "domain must not import adapter implementations"
 
-        # app layer must not depend on adapter implementations; use domain
-        # interfaces (repository ports) instead.
+        ports-no-impl:
+          files:
+            - "**/internal/ports/**/*.go"
+          deny:
+            - pkg: "vitals/internal/app"
+              desc: "ports must not import app layer"
+            - pkg: "vitals/internal/adapters"
+              desc: "ports must not import adapters"
+
         app-no-adapters:
           files:
             - "**/internal/app/**/*.go"
           deny:
-            - pkg: "vitals/internal/adapter"
-              desc: "app layer must depend only on domain interfaces, not adapter implementations"
+            - pkg: "vitals/internal/adapters"
+              desc: "app layer must not import adapter implementations"
 
-        # Pending: adapters-no-app rule is blocked by adapter/http importing
-        # app/ directly (handlers_auth.go, server.go, middleware.go).
-        # Add after introducing a formal inbound port and threading it through.
+        adapters-no-app:
+          files:
+            - "**/internal/adapters/**/*.go"
+          deny:
+            - pkg: "vitals/internal/app"
+              desc: "adapters must depend on inbound port interfaces, not the app layer directly"
 
 formatters:
   enable:

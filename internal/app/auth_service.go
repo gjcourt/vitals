@@ -10,44 +10,35 @@ import (
 	"time"
 
 	"vitals/internal/domain"
+	"vitals/internal/ports/inbound"
+	"vitals/internal/ports/outbound"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
-var (
-	// ErrInvalidCredentials indicates that the provided username or password was incorrect.
-	ErrInvalidCredentials = errors.New("invalid username or password")
-	// ErrSessionNotFound indicates that the requested session does not exist.
-	ErrSessionNotFound = errors.New("session not found")
-	// ErrSessionExpired indicates that the session has expired.
-	ErrSessionExpired = errors.New("session expired")
-	// ErrUserNotFound indicates that the user does not exist.
-	ErrUserNotFound = errors.New("user not found")
-)
-
-// AuthService handles authentication and session management.
-type AuthService struct {
-	users    domain.UserRepository
-	sessions domain.SessionRepository
+// authService implements inbound.AuthService.
+type authService struct {
+	users    outbound.UserRepository
+	sessions outbound.SessionRepository
 }
 
 // NewAuthService creates a new authentication service.
-func NewAuthService(users domain.UserRepository, sessions domain.SessionRepository) *AuthService {
-	return &AuthService{
+func NewAuthService(users outbound.UserRepository, sessions outbound.SessionRepository) inbound.AuthService {
+	return &authService{
 		users:    users,
 		sessions: sessions,
 	}
 }
 
 // Login authenticates a user and creates a session.
-func (s *AuthService) Login(ctx context.Context, username, password, userAgent, ip string) (string, error) {
+func (s *authService) Login(ctx context.Context, username, password, userAgent, ip string) (string, error) {
 	user, err := s.users.GetByUsername(ctx, username)
 	if err != nil || user == nil {
-		return "", ErrInvalidCredentials
+		return "", domain.ErrInvalidCredentials
 	}
 
 	if err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-		return "", ErrInvalidCredentials
+		return "", domain.ErrInvalidCredentials
 	}
 
 	token, err := generateToken()
@@ -64,37 +55,37 @@ func (s *AuthService) Login(ctx context.Context, username, password, userAgent, 
 }
 
 // Logout invalidates a session.
-func (s *AuthService) Logout(ctx context.Context, token string) error {
+func (s *authService) Logout(ctx context.Context, token string) error {
 	return s.sessions.Delete(ctx, token)
 }
 
 // ValidateSession checks if a session token is valid and matches the user agent.
-func (s *AuthService) ValidateSession(ctx context.Context, token, userAgent string) (*domain.User, error) {
+func (s *authService) ValidateSession(ctx context.Context, token, userAgent string) (*domain.User, error) {
 	session, err := s.sessions.GetByToken(ctx, token)
 	if err != nil || session == nil {
-		return nil, ErrSessionNotFound
+		return nil, domain.ErrSessionNotFound
 	}
 
 	if time.Now().After(session.ExpiresAt) {
 		_ = s.sessions.Delete(ctx, token)
-		return nil, ErrSessionExpired
+		return nil, domain.ErrSessionExpired
 	}
 
 	if session.UserAgent != userAgent {
 		_ = s.sessions.Delete(ctx, token)
-		return nil, ErrSessionExpired
+		return nil, domain.ErrSessionExpired
 	}
 
 	user, err := s.users.GetByID(ctx, session.UserID)
 	if err != nil {
-		return nil, ErrUserNotFound
+		return nil, domain.ErrUserNotFound
 	}
 
 	return user, nil
 }
 
 // CreateInitialUser creates the first user if no users exist.
-func (s *AuthService) CreateInitialUser(ctx context.Context, username, password string) error {
+func (s *authService) CreateInitialUser(ctx context.Context, username, password string) error {
 	count, err := s.users.Count(ctx)
 	if err != nil {
 		return err
@@ -114,15 +105,13 @@ func (s *AuthService) CreateInitialUser(ctx context.Context, username, password 
 }
 
 // ValidateForwardAuth validates a request from Authelia forward auth.
-// It checks for the Remote-User header set by Authelia.
-func (s *AuthService) ValidateForwardAuth(ctx context.Context, remoteUser string) (*domain.User, error) {
+func (s *authService) ValidateForwardAuth(ctx context.Context, remoteUser string) (*domain.User, error) {
 	if remoteUser == "" {
 		return nil, errors.New("no remote user header")
 	}
 
 	user, err := s.users.GetByUsername(ctx, remoteUser)
 	if err != nil {
-		// Auto-create user from SSO if they don't exist
 		user, err = s.users.Create(ctx, remoteUser, "")
 		if err != nil {
 			return nil, err
@@ -133,14 +122,11 @@ func (s *AuthService) ValidateForwardAuth(ctx context.Context, remoteUser string
 }
 
 // LoginWithUser creates a session for an already authenticated user (e.g. via SSO).
-func (s *AuthService) LoginWithUser(ctx context.Context, username, userAgent, ip string) (string, error) {
+func (s *authService) LoginWithUser(ctx context.Context, username, userAgent, ip string) (string, error) {
 	user, err := s.users.GetByUsername(ctx, username)
 	if err != nil {
-		// Auto-provision if missing. Use empty password hash as they login via SSO.
-		// Or random password.
 		user, err = s.users.Create(ctx, username, "")
 		if err != nil {
-			// Try getting again if creation failed due to race (e.g. unique constraint)
 			user, err = s.users.GetByUsername(ctx, username)
 			if err != nil {
 				return "", err
