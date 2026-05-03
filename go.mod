@@ -2,7 +2,7 @@ module vitals
 
 go 1.25.5
 
-require github.com/lib/pq v1.11.1
+require github.com/lib/pq v1.12.3
 
 require (
 	github.com/coreos/go-oidc/v3 v3.17.0
