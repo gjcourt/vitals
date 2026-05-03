@@ -3,6 +3,7 @@ package adapthttp
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"path"
@@ -16,8 +17,41 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-func writeError(w http.ResponseWriter, status int, err error) {
-	writeJSON(w, status, map[string]any{"error": err.Error()})
+// writeError responds with a generic, status-derived message and logs the
+// underlying error server-side. Internal details (DB driver text, SQL
+// fragments, bcrypt internals) must never be reflected back to clients.
+func (s *Server) writeError(w http.ResponseWriter, r *http.Request, status int, err error) {
+	if err != nil {
+		s.log().LogAttrs(r.Context(), slog.LevelWarn, "request error",
+			slog.Int("status", status),
+			slog.String("path", r.URL.Path),
+			slog.String("method", r.Method),
+			slog.Any("err", err),
+		)
+	}
+	writeJSON(w, status, map[string]any{"error": clientErrorMessage(status)})
+}
+
+func clientErrorMessage(status int) string {
+	switch status {
+	case http.StatusBadRequest:
+		return "invalid request"
+	case http.StatusUnauthorized:
+		return "unauthorized"
+	case http.StatusForbidden:
+		return "forbidden"
+	case http.StatusNotFound:
+		return "not found"
+	case http.StatusMethodNotAllowed:
+		return "method not allowed"
+	case http.StatusConflict:
+		return "conflict"
+	default:
+		if status >= 500 {
+			return "internal error"
+		}
+		return http.StatusText(status)
+	}
 }
 
 func parseJSON(r *http.Request, dst any) error {

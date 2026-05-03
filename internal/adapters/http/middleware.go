@@ -3,7 +3,7 @@ package adapthttp
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -84,8 +84,34 @@ func (s *Server) loggingMiddleware(next http.Handler) http.Handler {
 		rw := &loggingResponseWriter{ResponseWriter: w, code: http.StatusOK}
 		next.ServeHTTP(rw, r)
 
-		log.Printf("[HTTP] %s %s %s %d %v", r.RemoteAddr, r.Method, r.URL.Path, rw.code, time.Since(start))
+		s.log().LogAttrs(r.Context(), s.requestLogLevel(rw.code), "http request",
+			slog.String("remote", r.RemoteAddr),
+			slog.String("method", r.Method),
+			slog.String("path", r.URL.Path),
+			slog.Int("status", rw.code),
+			slog.Duration("duration", time.Since(start)),
+		)
 	})
+}
+
+// log returns the configured slog logger, falling back to slog.Default
+// when the server was constructed without one (e.g. test zero values).
+func (s *Server) log() *slog.Logger {
+	if s.logger != nil {
+		return s.logger
+	}
+	return slog.Default()
+}
+
+func (s *Server) requestLogLevel(status int) slog.Level {
+	switch {
+	case status >= 500:
+		return slog.LevelError
+	case status >= 400:
+		return slog.LevelWarn
+	default:
+		return slog.LevelInfo
+	}
 }
 
 type loggingResponseWriter struct {

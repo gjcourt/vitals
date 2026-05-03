@@ -44,6 +44,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   s.requestIsSecure(r),
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   86400,
 	})
@@ -68,6 +69,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   s.requestIsSecure(r),
 		MaxAge:   -1,
 	})
 
@@ -92,7 +94,7 @@ func (s *Server) handleSetupUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.authSvc.CreateInitialUser(r.Context(), req.Username, req.Password); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		s.writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
@@ -117,7 +119,7 @@ func (s *Server) handleSSOLogin(w http.ResponseWriter, r *http.Request) {
 		Value:    state,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   r.TLS != nil,
+		Secure:   s.requestIsSecure(r),
 		SameSite: http.SameSiteLaxMode, // Lax required for cross-site redirect returns
 		MaxAge:   300,
 	})
@@ -181,6 +183,7 @@ func (s *Server) handleSSOCallback(w http.ResponseWriter, r *http.Request) {
 		Value:    sessionToken,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   s.requestIsSecure(r),
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   86400,
 	})

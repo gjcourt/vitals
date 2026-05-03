@@ -17,7 +17,7 @@ func (s *Server) handleWeightToday(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		entry, err := s.weight.GetTodayWeight(ctx, user.ID, today)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err)
+			s.writeError(w, r, http.StatusInternalServerError, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"today": today, "entry": entry})
@@ -28,12 +28,12 @@ func (s *Server) handleWeightToday(w http.ResponseWriter, r *http.Request) {
 			Unit  string  `json:"unit"`
 		}
 		if err := parseJSON(r, &body); err != nil {
-			writeError(w, http.StatusBadRequest, err)
+			s.writeError(w, r, http.StatusBadRequest, err)
 			return
 		}
 		entry, _, err := s.weight.RecordWeight(ctx, user.ID, body.Value, body.Unit)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, err)
+			s.writeError(w, r, http.StatusBadRequest, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"today": today, "entry": entry})
@@ -55,7 +55,7 @@ func (s *Server) handleWeightRecent(w http.ResponseWriter, r *http.Request) {
 	limit := intQuery(r, "limit", 14)
 	items, err := s.weight.ListRecent(r.Context(), user.ID, limit)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		s.writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
@@ -72,7 +72,7 @@ func (s *Server) handleWeightUndoLast(w http.ResponseWriter, r *http.Request) {
 	}
 	deleted, entry, today, err := s.weight.UndoLast(r.Context(), user.ID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		s.writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "deleted": deleted, "today": today, "entry": entry})

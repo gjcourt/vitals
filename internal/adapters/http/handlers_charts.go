@@ -23,7 +23,7 @@ func (s *Server) handleChartsDaily(w http.ResponseWriter, r *http.Request) {
 
 	points, err := s.charts.GetDaily(r.Context(), user.ID, days, unit)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		s.writeError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
