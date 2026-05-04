@@ -98,42 +98,6 @@ func (m *mockWaterRepo) WaterTotalForLocalDay(ctx context.Context, userID int64,
 	return 2.5, nil
 }
 
-type mockUserRepo struct{}
-
-func (m *mockUserRepo) GetByUsername(ctx context.Context, username string) (*domain.User, error) {
-	return nil, nil
-}
-
-func (m *mockUserRepo) GetByID(ctx context.Context, id int64) (*domain.User, error) {
-	return nil, nil
-}
-
-func (m *mockUserRepo) Create(ctx context.Context, username, passwordHash string) (*domain.User, error) {
-	return &domain.User{ID: 1, Username: username}, nil
-}
-
-func (m *mockUserRepo) Count(ctx context.Context) (int, error) {
-	return 0, nil
-}
-
-type mockSessionRepo struct{}
-
-func (m *mockSessionRepo) Create(ctx context.Context, userID int64, token, userAgent, ip string, expiresAt time.Time) error {
-	return nil
-}
-
-func (m *mockSessionRepo) GetByToken(ctx context.Context, token string) (*domain.Session, error) {
-	return nil, nil
-}
-
-func (m *mockSessionRepo) Delete(ctx context.Context, token string) error {
-	return nil
-}
-
-func (m *mockSessionRepo) DeleteExpired(ctx context.Context) error {
-	return nil
-}
-
 // ---------------------------------------------------------------------------
 // Test-server helper
 // ---------------------------------------------------------------------------
