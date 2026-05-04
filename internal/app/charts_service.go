@@ -6,35 +6,24 @@ import (
 	"time"
 
 	"vitals/internal/domain"
+	"vitals/internal/ports/inbound"
+	"vitals/internal/ports/outbound"
 )
 
-// ChartsService encapsulates chart data retrieval use cases.
-type ChartsService struct {
-	weightRepo domain.WeightRepository
-	waterRepo  domain.WaterRepository
+// chartsService implements inbound.ChartsService.
+type chartsService struct {
+	weightRepo outbound.WeightRepository
+	waterRepo  outbound.WaterRepository
 }
 
 // NewChartsService creates a ChartsService backed by the given repositories.
-func NewChartsService(wr domain.WeightRepository, wa domain.WaterRepository) *ChartsService {
-	return &ChartsService{weightRepo: wr, waterRepo: wa}
-}
-
-// DayPoint is a single data point returned by GetDaily.
-type DayPoint struct {
-	Day         string       `json:"day"`
-	WaterLiters float64      `json:"waterLiters"`
-	Weight      *WeightPoint `json:"weight"`
-}
-
-// WeightPoint is the optional weight value within a DayPoint.
-type WeightPoint struct {
-	Value float64 `json:"value"`
-	Unit  string  `json:"unit"`
+func NewChartsService(wr outbound.WeightRepository, wa outbound.WaterRepository) inbound.ChartsService {
+	return &chartsService{weightRepo: wr, waterRepo: wa}
 }
 
 // GetDaily returns per-day chart data for the last days days, with weights
 // converted to the requested unit.
-func (s *ChartsService) GetDaily(ctx context.Context, userID int64, days int, unit string) ([]DayPoint, error) {
+func (s *chartsService) GetDaily(ctx context.Context, userID int64, days int, unit string) ([]inbound.DayPoint, error) {
 	if unit != "kg" && unit != "lb" {
 		return nil, errors.New("unit must be \"kg\" or \"lb\"")
 	}
@@ -43,7 +32,7 @@ func (s *ChartsService) GetDaily(ctx context.Context, userID int64, days int, un
 	}
 
 	today := time.Now().In(time.Local)
-	points := make([]DayPoint, 0, days)
+	points := make([]inbound.DayPoint, 0, days)
 
 	for i := days - 1; i >= 0; i-- {
 		d := today.AddDate(0, 0, -i)
@@ -59,16 +48,16 @@ func (s *ChartsService) GetDaily(ctx context.Context, userID int64, days int, un
 			return nil, err
 		}
 
-		var wp *WeightPoint
+		var wp *inbound.WeightPoint
 		if entry != nil {
 			val := entry.Value
 			if entry.Unit != unit {
 				val = domain.ConvertWeight(val, entry.Unit, unit)
 			}
-			wp = &WeightPoint{Value: val, Unit: unit}
+			wp = &inbound.WeightPoint{Value: val, Unit: unit}
 		}
 
-		points = append(points, DayPoint{Day: dayStr, WaterLiters: waterLiters, Weight: wp})
+		points = append(points, inbound.DayPoint{Day: dayStr, WaterLiters: waterLiters, Weight: wp})
 	}
 	return points, nil
 }

@@ -1,8 +1,8 @@
-// Package domain contains the core business entities and interfaces.
+// Package domain contains the core business entities.
 package domain
 
 import (
-	"context"
+	"errors"
 	"time"
 )
 
@@ -24,18 +24,13 @@ type Session struct {
 	CreatedAt time.Time
 }
 
-// UserRepository defines the port for user persistence operations.
-type UserRepository interface {
-	GetByUsername(ctx context.Context, username string) (*User, error)
-	GetByID(ctx context.Context, id int64) (*User, error)
-	Create(ctx context.Context, username, passwordHash string) (*User, error)
-	Count(ctx context.Context) (int, error)
-}
-
-// SessionRepository defines the port for session persistence operations.
-type SessionRepository interface {
-	Create(ctx context.Context, userID int64, token, userAgent, ip string, expiresAt time.Time) error
-	GetByToken(ctx context.Context, token string) (*Session, error)
-	Delete(ctx context.Context, token string) error
-	DeleteExpired(ctx context.Context) error
-}
+var (
+	// ErrInvalidCredentials indicates that the provided username or password was incorrect.
+	ErrInvalidCredentials = errors.New("invalid username or password")
+	// ErrSessionNotFound indicates that the requested session does not exist.
+	ErrSessionNotFound = errors.New("session not found")
+	// ErrSessionExpired indicates that the session has expired.
+	ErrSessionExpired = errors.New("session expired")
+	// ErrUserNotFound indicates that the user does not exist.
+	ErrUserNotFound = errors.New("user not found")
+)

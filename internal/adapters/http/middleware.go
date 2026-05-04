@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"vitals/internal/app"
 	"vitals/internal/domain"
 )
 
@@ -25,7 +24,6 @@ func userFromContext(r *http.Request) *domain.User {
 // authMiddleware validates session tokens and forward auth headers.
 func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Skip auth if disabled (for tests / dev) — inject a default user
 		if s.disableAuth {
 			ctx := context.WithValue(r.Context(), userContextKey, &domain.User{ID: 0, Username: "dev"})
 			next.ServeHTTP(w, r.WithContext(ctx))
@@ -50,7 +48,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 		}
 
 		user, err := s.authSvc.ValidateSession(r.Context(), cookie.Value, r.UserAgent())
-		if err == app.ErrSessionNotFound || err == app.ErrSessionExpired {
+		if err == domain.ErrSessionNotFound || err == domain.ErrSessionExpired {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -123,17 +121,12 @@ func (s *Server) requireAuthHTML(next http.Handler) http.Handler {
 }
 
 func isPublicPath(path string) bool {
-	// Public paths
 	if path == "/login" || path == "/signup" || path == "/health" {
 		return true
 	}
-
-	// Public prefixes
 	if len(path) >= 6 && path[:6] == "/auth/" {
 		return true
 	}
-
-	// Static assets
 	ext := ""
 	for i := len(path) - 1; i >= 0 && path[i] != '/'; i-- {
 		if path[i] == '.' {
@@ -141,10 +134,5 @@ func isPublicPath(path string) bool {
 			break
 		}
 	}
-	// Allow standard assets
-	if ext == ".css" || ext == ".js" || ext == ".ico" || ext == ".png" || ext == ".jpg" || ext == ".svg" {
-		return true
-	}
-
-	return false
+	return ext == ".css" || ext == ".js" || ext == ".ico" || ext == ".png" || ext == ".jpg" || ext == ".svg"
 }

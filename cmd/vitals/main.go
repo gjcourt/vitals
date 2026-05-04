@@ -7,11 +7,11 @@ import (
 	"net/http"
 	"os"
 
-	adapthttp "vitals/internal/adapter/http"
-	"vitals/internal/adapter/memory"
-	"vitals/internal/adapter/postgres"
+	adapthttp "vitals/internal/adapters/http"
+	"vitals/internal/adapters/memory"
+	"vitals/internal/adapters/postgres"
 	"vitals/internal/app"
-	"vitals/internal/domain"
+	outbound "vitals/internal/ports/outbound"
 )
 
 func main() {
@@ -19,12 +19,12 @@ func main() {
 	webDir := env("WEB_DIR", "web")
 
 	var (
-		weightRepo       domain.WeightRepository
-		waterRepo        domain.WaterRepository
-		chartsWeightRepo domain.WeightRepository
-		chartsWaterRepo  domain.WaterRepository
-		userRepo         domain.UserRepository
-		sessionRepo      domain.SessionRepository
+		weightRepo       outbound.WeightRepository
+		waterRepo        outbound.WaterRepository
+		chartsWeightRepo outbound.WeightRepository
+		chartsWaterRepo  outbound.WaterRepository
+		userRepo         outbound.UserRepository
+		sessionRepo      outbound.SessionRepository
 	)
 
 	useMemory := os.Getenv("POSTGRES_URL") == ""

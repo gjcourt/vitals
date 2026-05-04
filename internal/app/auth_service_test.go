@@ -140,7 +140,7 @@ func TestAuthService_Login_InvalidPassword(t *testing.T) {
 	svc := app.NewAuthService(users, sessions)
 
 	_, err := svc.Login(ctx, "testuser", "wrongpass", testUserAgent, "127.0.0.1")
-	if err != app.ErrInvalidCredentials {
+	if err != domain.ErrInvalidCredentials {
 		t.Errorf("expected ErrInvalidCredentials, got %v", err)
 	}
 }
@@ -206,7 +206,7 @@ func TestAuthService_ValidateSession_Expired(t *testing.T) {
 	svc := app.NewAuthService(users, sessions)
 
 	_, err := svc.ValidateSession(ctx, token, userAgent)
-	if err != app.ErrSessionExpired {
+	if err != domain.ErrSessionExpired {
 		t.Errorf("expected ErrSessionExpired, got %v", err)
 	}
 	if !deleted {
@@ -229,7 +229,7 @@ func TestAuthService_ValidateSession_NotFound(t *testing.T) {
 	svc := app.NewAuthService(users, sessions)
 
 	_, err := svc.ValidateSession(ctx, token, userAgent)
-	if err != app.ErrSessionNotFound {
+	if err != domain.ErrSessionNotFound {
 		t.Errorf("expected ErrSessionNotFound, got %v", err)
 	}
 }
@@ -248,7 +248,7 @@ func TestAuthService_Login_UserNotFound(t *testing.T) {
 	svc := app.NewAuthService(users, sessions)
 
 	_, err := svc.Login(ctx, "nonexistent", "password", "agent", "127.0.0.1")
-	if err != app.ErrInvalidCredentials {
+	if err != domain.ErrInvalidCredentials {
 		t.Errorf("expected ErrInvalidCredentials, got %v", err)
 	}
 }

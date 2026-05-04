@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"vitals/internal/domain"
+	"vitals/internal/ports/outbound"
 )
 
 // DB implements an in-memory database storage.
@@ -32,10 +33,10 @@ func New() *DB {
 }
 
 // Ensure interfaces are met.
-var _ domain.WeightRepository = (*DB)(nil)
-var _ domain.WaterRepository = (*DB)(nil)
-var _ domain.UserRepository = (*DB)(nil)
-var _ domain.SessionRepository = (*SessionRepo)(nil)
+var _ outbound.WeightRepository = (*DB)(nil)
+var _ outbound.WaterRepository = (*DB)(nil)
+var _ outbound.UserRepository = (*DB)(nil)
+var _ outbound.SessionRepository = (*SessionRepo)(nil)
 
 // --- WeightRepository ---
 
