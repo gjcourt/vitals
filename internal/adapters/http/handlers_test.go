@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,8 +13,8 @@ import (
 	"time"
 
 	adapthttp "vitals/internal/adapters/http"
-	"vitals/internal/app"
 	"vitals/internal/domain"
+	"vitals/internal/ports/inbound"
 )
 
 // ---------------------------------------------------------------------------
@@ -137,6 +138,91 @@ func (m *mockSessionRepo) DeleteExpired(ctx context.Context) error {
 // Test-server helper
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Mock services (inbound port implementations — no app layer import needed)
+// ---------------------------------------------------------------------------
+
+type mockWeightService struct{ repo *mockWeightRepo }
+
+func (s *mockWeightService) GetTodayWeight(ctx context.Context, userID int64, today string) (*domain.WeightEntry, error) {
+	return s.repo.LatestWeightForLocalDay(ctx, userID, today)
+}
+
+func (s *mockWeightService) RecordWeight(ctx context.Context, userID int64, value float64, unit string) (*domain.WeightEntry, string, error) {
+	if value <= 0 {
+		return nil, "", errors.New("value must be > 0")
+	}
+	if unit != "kg" && unit != "lb" {
+		return nil, "", errors.New("unit must be \"kg\" or \"lb\"")
+	}
+	_, err := s.repo.AddWeightEvent(ctx, userID, value, unit, time.Now())
+	if err != nil {
+		return nil, "", err
+	}
+	return &domain.WeightEntry{Value: value, Unit: unit}, "", nil
+}
+
+func (s *mockWeightService) ListRecent(ctx context.Context, userID int64, limit int) ([]domain.WeightEntry, error) {
+	return s.repo.ListRecentWeightEvents(ctx, userID, limit)
+}
+
+func (s *mockWeightService) UndoLast(ctx context.Context, userID int64) (bool, *domain.WeightEntry, string, error) {
+	ok, err := s.repo.DeleteLatestWeightEvent(ctx, userID)
+	return ok, nil, "", err
+}
+
+type mockWaterService struct{ repo *mockWaterRepo }
+
+func (s *mockWaterService) GetTodayTotal(ctx context.Context, userID int64, today string) (float64, error) {
+	return s.repo.WaterTotalForLocalDay(ctx, userID, today)
+}
+
+func (s *mockWaterService) RecordEvent(ctx context.Context, userID int64, deltaLiters float64) (int64, error) {
+	if deltaLiters == 0 || deltaLiters < -10 || deltaLiters > 10 {
+		return 0, errors.New("deltaLiters must be non-zero and within [-10, 10]")
+	}
+	return s.repo.AddWaterEvent(ctx, userID, deltaLiters, time.Now())
+}
+
+func (s *mockWaterService) ListRecent(ctx context.Context, userID int64, limit int) ([]domain.WaterEvent, error) {
+	return s.repo.ListRecentWaterEvents(ctx, userID, limit)
+}
+
+func (s *mockWaterService) UndoLast(ctx context.Context, userID int64) (bool, int64, error) {
+	events, err := s.repo.ListRecentWaterEvents(ctx, userID, 1)
+	if err != nil || len(events) == 0 {
+		return false, 0, err
+	}
+	id := events[0].ID
+	return true, id, s.repo.DeleteWaterEvent(ctx, userID, id)
+}
+
+type mockChartsService struct {
+	weight *mockWeightRepo
+	water  *mockWaterRepo
+}
+
+func (s *mockChartsService) GetDaily(_ context.Context, _ int64, _ int, _ string) ([]inbound.DayPoint, error) {
+	return nil, nil
+}
+
+type mockAuthService struct{}
+
+func (s *mockAuthService) Login(_ context.Context, _, _, _, _ string) (string, error) {
+	return "token", nil
+}
+func (s *mockAuthService) Logout(_ context.Context, _ string) error { return nil }
+func (s *mockAuthService) ValidateSession(_ context.Context, _, _ string) (*domain.User, error) {
+	return &domain.User{ID: 1, Username: "test"}, nil
+}
+func (s *mockAuthService) CreateInitialUser(_ context.Context, _, _ string) error { return nil }
+func (s *mockAuthService) ValidateForwardAuth(_ context.Context, _ string) (*domain.User, error) {
+	return &domain.User{ID: 1, Username: "test"}, nil
+}
+func (s *mockAuthService) LoginWithUser(_ context.Context, _, _, _ string) (string, error) {
+	return "token", nil
+}
+
 func newTestServer(t *testing.T, wr *mockWeightRepo, wa *mockWaterRepo) *httptest.Server {
 	t.Helper()
 
@@ -147,12 +233,10 @@ func newTestServer(t *testing.T, wr *mockWeightRepo, wa *mockWaterRepo) *httptes
 		wa = &mockWaterRepo{}
 	}
 
-	ws := app.NewWeightService(wr)
-	was := app.NewWaterService(wa)
-	cs := app.NewChartsService(wr, wa)
-
-	// Create a mock auth service with dummy repos
-	authSvc := app.NewAuthService(&mockUserRepo{}, &mockSessionRepo{})
+	ws := &mockWeightService{repo: wr}
+	was := &mockWaterService{repo: wa}
+	cs := &mockChartsService{weight: wr, water: wa}
+	authSvc := &mockAuthService{}
 
 	webDir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(webDir, "index.html"), []byte("<html></html>"), 0o600); err != nil {
