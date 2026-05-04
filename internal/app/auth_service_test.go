@@ -1,4 +1,4 @@
-package app
+package app_test
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"vitals/internal/app"
 	"vitals/internal/domain"
 
 	"golang.org/x/crypto/bcrypt"
@@ -110,8 +111,7 @@ func TestAuthService_Login_Success(t *testing.T) {
 		},
 	}
 
-	svc := NewAuthService(users, sessions)
-	// Add userAgent=testUserAgent, ip="127.0.0.1"
+	svc := app.NewAuthService(users, sessions)
 	token, err := svc.Login(ctx, "testuser", password, testUserAgent, "127.0.0.1")
 
 	if err != nil {
@@ -137,11 +137,10 @@ func TestAuthService_Login_InvalidPassword(t *testing.T) {
 	}
 
 	sessions := &mockSessionRepo{}
-	svc := NewAuthService(users, sessions)
+	svc := app.NewAuthService(users, sessions)
 
-	// Add userAgent=testUserAgent, ip="127.0.0.1"
 	_, err := svc.Login(ctx, "testuser", "wrongpass", testUserAgent, "127.0.0.1")
-	if err != ErrInvalidCredentials {
+	if err != app.ErrInvalidCredentials {
 		t.Errorf("expected ErrInvalidCredentials, got %v", err)
 	}
 }
@@ -171,8 +170,7 @@ func TestAuthService_ValidateSession_Valid(t *testing.T) {
 		},
 	}
 
-	svc := NewAuthService(users, sessions)
-	// Add userAgent=testUserAgent
+	svc := app.NewAuthService(users, sessions)
 	user, err := svc.ValidateSession(ctx, token, userAgent)
 
 	if err != nil {
@@ -205,11 +203,10 @@ func TestAuthService_ValidateSession_Expired(t *testing.T) {
 	}
 
 	users := &mockUserRepo{}
-	svc := NewAuthService(users, sessions)
+	svc := app.NewAuthService(users, sessions)
 
-	// Add userAgent=testUserAgent
 	_, err := svc.ValidateSession(ctx, token, userAgent)
-	if err != ErrSessionExpired {
+	if err != app.ErrSessionExpired {
 		t.Errorf("expected ErrSessionExpired, got %v", err)
 	}
 	if !deleted {
@@ -229,10 +226,10 @@ func TestAuthService_ValidateSession_NotFound(t *testing.T) {
 	}
 
 	users := &mockUserRepo{}
-	svc := NewAuthService(users, sessions)
+	svc := app.NewAuthService(users, sessions)
 
 	_, err := svc.ValidateSession(ctx, token, userAgent)
-	if err != ErrSessionNotFound {
+	if err != app.ErrSessionNotFound {
 		t.Errorf("expected ErrSessionNotFound, got %v", err)
 	}
 }
@@ -248,10 +245,10 @@ func TestAuthService_Login_UserNotFound(t *testing.T) {
 
 	sessions := &mockSessionRepo{}
 
-	svc := NewAuthService(users, sessions)
+	svc := app.NewAuthService(users, sessions)
 
 	_, err := svc.Login(ctx, "nonexistent", "password", "agent", "127.0.0.1")
-	if err != ErrInvalidCredentials {
+	if err != app.ErrInvalidCredentials {
 		t.Errorf("expected ErrInvalidCredentials, got %v", err)
 	}
 }
