@@ -5,7 +5,7 @@ go 1.25.5
 require github.com/lib/pq v1.12.3
 
 require (
-	github.com/coreos/go-oidc/v3 v3.18.0
+	github.com/coreos/go-oidc/v3 v3.19.0
 	golang.org/x/crypto v0.53.0
 	golang.org/x/oauth2 v0.36.0
 )
