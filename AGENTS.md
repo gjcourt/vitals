@@ -94,6 +94,8 @@ Or `make all`, which runs the lot.
 
 `docs/` taxonomy: `architecture/` · `design/` · `operations/` · `plans/` · `reference/` · `research/`. See each folder's `README.md` for scope. Index: `docs/README.md`.
 
+Full architecture reference (layers, dependency diagram, request flow, ports & adapters map, boundary guard): [`docs/architecture/ARCHITECTURE.md`](docs/architecture/ARCHITECTURE.md).
+
 ## Observability
 
 Logs to stderr in slog text format. No metrics endpoint today; cluster-level pod status is the source of health signal.
