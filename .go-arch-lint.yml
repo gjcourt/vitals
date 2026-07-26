@@ -1,0 +1,51 @@
+version: 3
+
+# Allow any external / vendored dependency (stdlib + third-party such as
+# lib/pq, go-oidc, x/crypto, x/oauth2). We only police *internal* boundaries.
+allow:
+  depOnAnyVendor: true
+
+# External test packages (e.g. `package app_test`) import the package under
+# test, which registers as a component self-dependency. Exclude *_test.go from
+# boundary analysis — tests are not part of the production dependency graph.
+excludeFiles:
+  - "^.*_test\\.go$"
+
+# Hexagonal (ports & adapters) layers, matching the real repo layout.
+# NOTE: "adapter" is singular and globs every driving/driven sub-adapter
+# (http, memory, postgres). There is no internal/ports package — the outbound
+# port interfaces live in internal/domain; see docs/architecture/ARCHITECTURE.md.
+components:
+  domain:
+    in: internal/domain
+  app:
+    in: internal/app
+  adapter:
+    in: internal/adapter/**
+  testdoubles:
+    in: internal/testdoubles
+  cmd:
+    in: cmd/**
+
+# Inward dependency rule: outer layers may depend on inner layers, never the
+# reverse. domain is the core and depends on nothing internal.
+# domain is intentionally omitted: a component with no deps entry may not
+# depend on any internal component (stdlib/vendor still allowed above).
+deps:
+  app:
+    mayDependOn:
+      - domain
+  adapter:
+    mayDependOn:
+      - domain
+      - app
+  testdoubles:
+    mayDependOn:
+      - domain
+      - app
+  cmd:
+    mayDependOn:
+      - domain
+      - app
+      - adapter
+      - testdoubles
