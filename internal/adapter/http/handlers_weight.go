@@ -17,7 +17,7 @@ func (s *Server) handleWeightToday(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"today": today, "entry": entry})
+		writeJSON(w, http.StatusOK, map[string]any{fieldToday: today, fieldEntry: entry})
 
 	case http.MethodPut:
 		var body struct {
@@ -33,7 +33,7 @@ func (s *Server) handleWeightToday(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"today": today, "entry": entry})
+		writeJSON(w, http.StatusOK, map[string]any{fieldToday: today, fieldEntry: entry})
 
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -52,7 +52,7 @@ func (s *Server) handleWeightRecent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"items": items})
+	writeJSON(w, http.StatusOK, map[string]any{fieldItems: items})
 }
 
 func (s *Server) handleWeightUndoLast(w http.ResponseWriter, r *http.Request) {
@@ -66,5 +66,5 @@ func (s *Server) handleWeightUndoLast(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "deleted": deleted, "today": today, "entry": entry})
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "deleted": deleted, fieldToday: today, fieldEntry: entry})
 }

@@ -43,7 +43,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 		}
 
 		// Fall back to cookie-based session
-		cookie, err := r.Cookie("session")
+		cookie, err := r.Cookie(cookieSession)
 		if err != nil {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -72,7 +72,7 @@ func (s *Server) loggingMiddleware(next http.Handler) http.Handler {
 		rw := &loggingResponseWriter{ResponseWriter: w, code: http.StatusOK}
 		next.ServeHTTP(rw, r)
 
-		log.Printf("[HTTP] %s %s %s %d %v", r.RemoteAddr, r.Method, r.URL.Path, rw.code, time.Since(start))
+		log.Printf("[HTTP] %s %s %s %d %v", r.RemoteAddr, r.Method, r.URL.Path, rw.code, time.Since(start)) //nolint:gosec // G706: internal HTTP access log of request metadata
 	})
 }
 
@@ -105,7 +105,7 @@ func (s *Server) requireAuthHTML(next http.Handler) http.Handler {
 		}
 
 		// Check session cookie
-		cookie, err := r.Cookie("session")
+		cookie, err := r.Cookie(cookieSession)
 		if err != nil {
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return

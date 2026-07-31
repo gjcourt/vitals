@@ -38,17 +38,18 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     "session",
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // G124: HttpOnly + SameSite set; Secure conditional on r.TLS (or deletion cookie)
+		Name:     cookieSession,
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   r.TLS != nil,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   86400,
 	})
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	_ = json.NewEncoder(w).Encode(map[string]string{fieldStatus: "ok"})
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
@@ -57,13 +58,13 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cookie, err := r.Cookie("session")
+	cookie, err := r.Cookie(cookieSession)
 	if err == nil {
 		_ = s.authSvc.Logout(r.Context(), cookie.Value)
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     "session",
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // G124: HttpOnly + SameSite set; Secure conditional on r.TLS (or deletion cookie)
+		Name:     cookieSession,
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
@@ -71,7 +72,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	})
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	_ = json.NewEncoder(w).Encode(map[string]string{fieldStatus: "ok"})
 }
 
 func (s *Server) handleSetupUser(w http.ResponseWriter, r *http.Request) {
@@ -96,7 +97,7 @@ func (s *Server) handleSetupUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	_ = json.NewEncoder(w).Encode(map[string]string{fieldStatus: "ok"})
 }
 
 func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
@@ -111,7 +112,7 @@ func (s *Server) handleSSOLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	state := generateState()
-	http.SetCookie(w, &http.Cookie{
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // G124: HttpOnly + SameSite set; Secure conditional on r.TLS (or deletion cookie)
 		Name:     "oauth_state",
 		Value:    state,
 		Path:     "/",
@@ -135,7 +136,7 @@ func (s *Server) handleSSOCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{Name: "oauth_state", MaxAge: -1, Path: "/"})
+	http.SetCookie(w, &http.Cookie{Name: "oauth_state", MaxAge: -1, Path: "/"}) //nolint:gosec // G124: HttpOnly + SameSite set; Secure conditional on r.TLS (or deletion cookie)
 
 	token, err := s.oidcConfig.OAuth2Config.Exchange(r.Context(), r.URL.Query().Get("code"))
 	if err != nil {
@@ -175,11 +176,12 @@ func (s *Server) handleSSOCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     "session",
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // G124: HttpOnly + SameSite set; Secure conditional on r.TLS (or deletion cookie)
+		Name:     cookieSession,
 		Value:    sessionToken,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   r.TLS != nil,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   86400,
 	})

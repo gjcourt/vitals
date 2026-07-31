@@ -25,9 +25,9 @@ func (s *Server) handleChartsDaily(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"days":  days,
-		"unit":  unit,
-		"today": localDayString(time.Now()),
-		"items": points,
+		"days":     days,
+		"unit":     unit,
+		fieldToday: localDayString(time.Now()),
+		fieldItems: points,
 	})
 }
