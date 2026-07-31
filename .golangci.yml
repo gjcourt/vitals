@@ -19,6 +19,12 @@ linters:
     - unconvert
     - unparam
     - depguard
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - goconst
+          - gosec
   settings:
     govet:
       enable-all: true

@@ -17,7 +17,7 @@ func (s *Server) handleWaterToday(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"today": today, "totalLiters": total})
+	writeJSON(w, http.StatusOK, map[string]any{fieldToday: today, "totalLiters": total})
 }
 
 func (s *Server) handleWaterEvent(w http.ResponseWriter, r *http.Request) {
@@ -53,7 +53,7 @@ func (s *Server) handleWaterRecent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"items": items})
+	writeJSON(w, http.StatusOK, map[string]any{fieldItems: items})
 }
 
 func (s *Server) handleWaterUndoLast(w http.ResponseWriter, r *http.Request) {
