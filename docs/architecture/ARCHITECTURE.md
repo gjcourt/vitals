@@ -234,7 +234,7 @@ External/vendored packages are allowed everywhere via
 `allow.depOnAnyVendor: true`. Run locally with:
 
 ```bash
-go install github.com/fe3dback/go-arch-lint@v1.16.0
+go install github.com/fe3dback/go-arch-lint@v1.18.0
 go-arch-lint check
 ```
 
