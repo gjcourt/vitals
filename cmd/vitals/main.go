@@ -9,7 +9,7 @@ import (
 
 	adapthttp "vitals/internal/adapter/http"
 	"vitals/internal/adapter/memory"
-	"vitals/internal/adapter/postgres"
+	"vitals/internal/adapter/sqlite"
 	"vitals/internal/app"
 	"vitals/internal/domain"
 )
@@ -27,11 +27,12 @@ func main() {
 		sessionRepo      domain.SessionRepository
 	)
 
-	useMemory := os.Getenv("POSTGRES_URL") == ""
+	sqlitePath := os.Getenv("SQLITE_PATH")
 
-	// DB configuration
-	if useMemory {
-		log.Println("Using in-memory database")
+	// DB configuration. SQLITE_PATH selects durable storage; unset means
+	// in-memory, which is the dev default and loses everything on restart.
+	if sqlitePath == "" {
+		log.Println("Using in-memory database (set SQLITE_PATH for durable storage)")
 		mem := memory.New()
 		weightRepo = mem
 		waterRepo = mem
@@ -40,18 +41,9 @@ func main() {
 		userRepo = mem
 		sessionRepo = mem.NewSessionRepo()
 	} else {
-		log.Println("Using PostgreSQL database")
-		connStr := os.Getenv("POSTGRES_URL")
+		log.Printf("Using SQLite database at %s", sqlitePath)
 
-		// Map custom env vars to lib/pq standard vars if provided
-		if v := os.Getenv("POSTGRES_USER"); v != "" {
-			_ = os.Setenv("PGUSER", v)
-		}
-		if v := os.Getenv("POSTGRES_PASSWORD"); v != "" {
-			_ = os.Setenv("PGPASSWORD", v)
-		}
-
-		db, err := postgres.Open(connStr)
+		db, err := sqlite.Open(sqlitePath)
 		if err != nil {
 			log.Fatalf("db open: %v", err)
 		}
@@ -62,7 +54,7 @@ func main() {
 		chartsWeightRepo = db
 		chartsWaterRepo = db
 		userRepo = db
-		sessionRepo = postgres.NewSessionRepo(db)
+		sessionRepo = sqlite.NewSessionRepo(db)
 	}
 
 	weightSvc := app.NewWeightService(weightRepo)

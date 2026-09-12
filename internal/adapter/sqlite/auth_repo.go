@@ -1,5 +1,5 @@
-// Package postgres implements the domain repositories using PostgreSQL.
-package postgres
+// Package sqlite implements the domain repositories using SQLite.
+package sqlite
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 func (d *DB) GetByUsername(ctx context.Context, username string) (*domain.User, error) {
 	var u domain.User
 	err := d.sql.QueryRowContext(ctx,
-		"SELECT id, username, password_hash, created_at FROM users WHERE username = $1",
+		"SELECT id, username, password_hash, created_at FROM users WHERE username = ?",
 		username,
 	).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.CreatedAt)
 	if err == sql.ErrNoRows {
@@ -29,7 +29,7 @@ func (d *DB) GetByUsername(ctx context.Context, username string) (*domain.User, 
 func (d *DB) GetByID(ctx context.Context, id int64) (*domain.User, error) {
 	var u domain.User
 	err := d.sql.QueryRowContext(ctx,
-		"SELECT id, username, password_hash, created_at FROM users WHERE id = $1",
+		"SELECT id, username, password_hash, created_at FROM users WHERE id = ?",
 		id,
 	).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.CreatedAt)
 	if err == sql.ErrNoRows {
@@ -45,7 +45,7 @@ func (d *DB) GetByID(ctx context.Context, id int64) (*domain.User, error) {
 func (d *DB) Create(ctx context.Context, username, passwordHash string) (*domain.User, error) {
 	var u domain.User
 	err := d.sql.QueryRowContext(ctx,
-		"INSERT INTO users (username, password_hash, created_at) VALUES ($1, $2, $3) RETURNING id, username, password_hash, created_at",
+		"INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?) RETURNING id, username, password_hash, created_at",
 		username, passwordHash, time.Now(),
 	).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.CreatedAt)
 	if err != nil {
@@ -74,7 +74,7 @@ func NewSessionRepo(db *DB) *SessionRepo {
 // Create creates a new session.
 func (r *SessionRepo) Create(ctx context.Context, userID int64, token, userAgent, ip string, expiresAt time.Time) error {
 	_, err := r.db.sql.ExecContext(ctx,
-		"INSERT INTO sessions (user_id, token, user_agent, ip, expires_at, created_at) VALUES ($1, $2, $3, $4, $5, $6)",
+		"INSERT INTO sessions (user_id, token, user_agent, ip, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)",
 		userID, token, userAgent, ip, expiresAt, time.Now(),
 	)
 	return err
@@ -84,7 +84,7 @@ func (r *SessionRepo) Create(ctx context.Context, userID int64, token, userAgent
 func (r *SessionRepo) GetByToken(ctx context.Context, token string) (*domain.Session, error) {
 	var s domain.Session
 	err := r.db.sql.QueryRowContext(ctx,
-		"SELECT token, user_id, user_agent, ip, expires_at, created_at FROM sessions WHERE token = $1",
+		"SELECT token, user_id, user_agent, ip, expires_at, created_at FROM sessions WHERE token = ?",
 		token,
 	).Scan(&s.Token, &s.UserID, &s.UserAgent, &s.IP, &s.ExpiresAt, &s.CreatedAt)
 	if err == sql.ErrNoRows {
@@ -98,12 +98,12 @@ func (r *SessionRepo) GetByToken(ctx context.Context, token string) (*domain.Ses
 
 // Delete deletes a session by token.
 func (r *SessionRepo) Delete(ctx context.Context, token string) error {
-	_, err := r.db.sql.ExecContext(ctx, "DELETE FROM sessions WHERE token = $1", token)
+	_, err := r.db.sql.ExecContext(ctx, "DELETE FROM sessions WHERE token = ?", token)
 	return err
 }
 
 // DeleteExpired deletes all expired sessions.
 func (r *SessionRepo) DeleteExpired(ctx context.Context) error {
-	_, err := r.db.sql.ExecContext(ctx, "DELETE FROM sessions WHERE expires_at < $1", time.Now())
+	_, err := r.db.sql.ExecContext(ctx, "DELETE FROM sessions WHERE expires_at < ?", time.Now())
 	return err
 }
