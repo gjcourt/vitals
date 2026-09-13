@@ -1,4 +1,4 @@
-package postgres
+package sqlite
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 func (d *DB) AddWaterEvent(ctx context.Context, userID int64, deltaLiters float64, createdAt time.Time) (int64, error) {
 	var id int64
 	err := d.sql.QueryRowContext(ctx,
-		"INSERT INTO water_events(user_id, delta_liters, created_at) VALUES($1, $2, $3) RETURNING id;",
+		"INSERT INTO water_events(user_id, delta_liters, created_at) VALUES(?, ?, ?) RETURNING id;",
 		userID, deltaLiters, createdAt.UTC(),
 	).Scan(&id)
 	return id, err
@@ -19,14 +19,14 @@ func (d *DB) AddWaterEvent(ctx context.Context, userID int64, deltaLiters float6
 
 // DeleteWaterEvent removes a water event by ID, scoped to a user.
 func (d *DB) DeleteWaterEvent(ctx context.Context, userID int64, id int64) error {
-	_, err := d.sql.ExecContext(ctx, "DELETE FROM water_events WHERE id=$1 AND user_id=$2;", id, userID)
+	_, err := d.sql.ExecContext(ctx, "DELETE FROM water_events WHERE id=? AND user_id=?;", id, userID)
 	return err
 }
 
 // ListRecentWaterEvents returns the most recent water events up to limit for a user.
 func (d *DB) ListRecentWaterEvents(ctx context.Context, userID int64, limit int) ([]domain.WaterEvent, error) {
 	rows, err := d.sql.QueryContext(ctx,
-		"SELECT id, delta_liters, created_at FROM water_events WHERE user_id=$1 ORDER BY created_at DESC LIMIT $2;", userID, limit)
+		"SELECT id, delta_liters, created_at FROM water_events WHERE user_id=? ORDER BY created_at DESC LIMIT ?;", userID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +54,7 @@ func (d *DB) WaterTotalForLocalDay(ctx context.Context, userID int64, localDay s
 
 	var total float64
 	err = d.sql.QueryRowContext(ctx,
-		"SELECT COALESCE(SUM(delta_liters), 0) FROM water_events WHERE user_id=$1 AND created_at >= $2 AND created_at < $3;",
+		"SELECT COALESCE(SUM(delta_liters), 0) FROM water_events WHERE user_id=? AND created_at >= ? AND created_at < ?;",
 		userID, dayStart.UTC(), dayEnd.UTC(),
 	).Scan(&total)
 	return total, err

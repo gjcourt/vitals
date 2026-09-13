@@ -1,4 +1,4 @@
-package postgres
+package sqlite
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 func (d *DB) AddWeightEvent(ctx context.Context, userID int64, value float64, unit string, createdAt time.Time) (int64, error) {
 	var id int64
 	err := d.sql.QueryRowContext(ctx,
-		"INSERT INTO weight_events(user_id, value, unit, created_at) VALUES($1, $2, $3, $4) RETURNING id;",
+		"INSERT INTO weight_events(user_id, value, unit, created_at) VALUES(?, ?, ?, ?) RETURNING id;",
 		userID, value, unit, createdAt.UTC(),
 	).Scan(&id)
 	return id, err
@@ -22,14 +22,14 @@ func (d *DB) AddWeightEvent(ctx context.Context, userID int64, value float64, un
 // DeleteLatestWeightEvent removes the most recent weight event for a user.
 func (d *DB) DeleteLatestWeightEvent(ctx context.Context, userID int64) (bool, error) {
 	var id int64
-	err := d.sql.QueryRowContext(ctx, "SELECT id FROM weight_events WHERE user_id=$1 ORDER BY created_at DESC LIMIT 1;", userID).Scan(&id)
+	err := d.sql.QueryRowContext(ctx, "SELECT id FROM weight_events WHERE user_id=? ORDER BY created_at DESC LIMIT 1;", userID).Scan(&id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return false, nil
 		}
 		return false, err
 	}
-	_, err = d.sql.ExecContext(ctx, "DELETE FROM weight_events WHERE id=$1 AND user_id=$2;", id, userID)
+	_, err = d.sql.ExecContext(ctx, "DELETE FROM weight_events WHERE id=? AND user_id=?;", id, userID)
 	return err == nil, err
 }
 
@@ -42,7 +42,7 @@ func (d *DB) LatestWeightForLocalDay(ctx context.Context, userID int64, localDay
 	dayEnd := dayStart.Add(24 * time.Hour)
 
 	row := d.sql.QueryRowContext(ctx,
-		"SELECT id, value, unit, created_at FROM weight_events WHERE user_id=$1 AND created_at >= $2 AND created_at < $3 ORDER BY created_at DESC LIMIT 1;",
+		"SELECT id, value, unit, created_at FROM weight_events WHERE user_id=? AND created_at >= ? AND created_at < ? ORDER BY created_at DESC LIMIT 1;",
 		userID, dayStart.UTC(), dayEnd.UTC(),
 	)
 
@@ -61,7 +61,7 @@ func (d *DB) LatestWeightForLocalDay(ctx context.Context, userID int64, localDay
 // ListRecentWeightEvents returns the most recent weight events up to limit for a user.
 func (d *DB) ListRecentWeightEvents(ctx context.Context, userID int64, limit int) ([]domain.WeightEntry, error) {
 	rows, err := d.sql.QueryContext(ctx,
-		"SELECT id, value, unit, created_at FROM weight_events WHERE user_id=$1 ORDER BY created_at DESC LIMIT $2;", userID, limit)
+		"SELECT id, value, unit, created_at FROM weight_events WHERE user_id=? ORDER BY created_at DESC LIMIT ?;", userID, limit)
 	if err != nil {
 		return nil, err
 	}
