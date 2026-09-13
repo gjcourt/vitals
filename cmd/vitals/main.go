@@ -41,7 +41,11 @@ func main() {
 		userRepo = mem
 		sessionRepo = mem.NewSessionRepo()
 	} else {
-		log.Printf("Using SQLite database at %s", sqlitePath)
+		// %q, not %s: SQLITE_PATH is environment-supplied, and gosec G706 flags
+		// interpolating it raw as log injection. %q escapes control characters,
+		// which is the actual attack (newlines forging log lines), so this is a fix
+		// rather than a suppression.
+		log.Printf("Using SQLite database at %q", sqlitePath)
 
 		db, err := sqlite.Open(sqlitePath)
 		if err != nil {
