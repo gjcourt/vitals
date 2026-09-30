@@ -9,21 +9,22 @@ Vitals is a single-tenant, single-binary Go app that does just those two
 things, with a mobile-first UI and no JS build step, meant to be self-hosted
 by one deployment's one user account.
 
-**Status:** in daily use on the homelab — deployed to staging and production
-since 2026-09-13.
+**Status:** running on the homelab in staging and production since 2026-02;
+storage moved from PostgreSQL to SQLite (replicated with Litestream) in
+2026-09.
 
 ## Quick start
 
-Needs: Go 1.27.
+Needs: Go 1.26 or newer (the `go.mod` minimum; CI builds with 1.27).
 
 ```bash
 git clone https://github.com/gjcourt/vitals && cd vitals
 go run ./cmd/vitals
 ```
 
-Open http://localhost:8080. On first run there are no users yet, so you're
-sent to `/signup` to create the one account the deployment will use; after
-that, everyone signs in at `/login`. With no further configuration, data is
+Open http://localhost:8080, which redirects to `/login`. On first run there
+are no users yet: follow the Sign up link to `/signup` and create the one
+account the deployment will use — signup is refused once a user exists. With no further configuration, data is
 kept in memory and lost on restart; set `SQLITE_PATH` (see Configuration) for
 a run that survives a restart.
 
@@ -68,9 +69,9 @@ the architecture reference.
 ## Development
 
 ```bash
-golangci-lint run ./...
-go-arch-lint check
-make test
+make lint           # golangci-lint run ./... — CI lint job
+go-arch-lint check  # hexagonal boundaries — CI arch-lint job
+make test           # go test -race -v ./... — CI test job
 ```
 
 `make build` compiles the binary to `./vitals`; `make all` runs clean, lint,
@@ -81,9 +82,11 @@ test and build. Conventions for contributors and agents:
 
 Runs on the homelab, staging and production, built and pushed to
 `ghcr.io/gjcourt/vitals` by `.github/workflows/image.yml` on every push to
-`master`. See [`gjcourt/homelab`](https://github.com/gjcourt/homelab)
-`apps/production/vitals/` and `apps/staging/vitals/` for the deployed
-manifests.
+`master`. In the cluster, `SQLITE_PATH` points at a file on a PVC and a
+Litestream sidecar replicates it to S3. See the
+[runbook](https://github.com/gjcourt/homelab/blob/master/docs/operations/apps/vitals.md)
+and the manifests under `apps/base/vitals/`, `apps/staging/vitals/`, and
+`apps/production/vitals/` in [`gjcourt/homelab`](https://github.com/gjcourt/homelab).
 
 ## License
 
