@@ -1,24 +1,37 @@
-# Vitals
+<!-- readme-type: service -->
+# vitals
 
-A mobile-friendly Go web app for tracking daily weight and water intake.
-Single binary, single tenant, no JS build step.
+Mobile-friendly Go web app for logging daily weight and water intake
 
-## Quickstart
+Tracking daily weight and water intake usually means a spreadsheet or a
+general-purpose fitness app with far more surface area than the job needs.
+Vitals is a single-tenant, single-binary Go app that does just those two
+things, with a mobile-first UI and no JS build step, meant to be self-hosted
+by one deployment's one user account.
+
+**Status:** in daily use on the homelab — deployed to staging and production
+since 2026-09-13.
+
+## Quick start
+
+Needs: Go 1.27.
 
 ```bash
+git clone https://github.com/gjcourt/vitals && cd vitals
 go run ./cmd/vitals
 ```
 
 Open http://localhost:8080. On first run there are no users yet, so you're
 sent to `/signup` to create the one account the deployment will use; after
 that, everyone signs in at `/login`. With no further configuration, data is
-kept in memory and lost on restart.
+kept in memory and lost on restart; set `SQLITE_PATH` (see Configuration) for
+a run that survives a restart.
 
-For durable storage, point it at a SQLite file:
+## Usage
 
-```bash
-SQLITE_PATH=vitals.db go run ./cmd/vitals
-```
+Log today's weight, view recent entries and trend charts, and log water
+intake through the mobile-first UI at `/`; the same actions are available as
+JSON under `/api` (see the routes in [`docs/reference/`](docs/reference/)).
 
 ## Configuration
 
@@ -39,68 +52,39 @@ Sessions are cookie-based (bcrypt-hashed passwords, random session tokens). A
 reverse proxy that sets a `Remote-User` header (e.g. Authelia forward-auth)
 is also honored and takes priority over the cookie.
 
-## API
+## How it works
 
-All routes below are under `/api` and, except for `/health` and `/auth/*`,
-require an authenticated session.
-
-- `GET /api/health`
-- `POST /api/auth/login`, `POST /api/auth/logout`
-- `POST /api/auth/setup` — creates the first (and only) user; fails once a user exists
-- `GET /api/auth/config` — reports whether SSO is enabled
-- `GET /api/auth/oidc/login`, `GET /api/auth/oidc/callback` — SSO flow, 404 unless SSO is configured
-- `GET /api/weight/today`, `PUT /api/weight/today` — body: `{ "value": 75.4, "unit": "kg" }`
-- `GET /api/weight/recent?limit=14`
-- `POST /api/weight/undo-last`
-- `GET /api/water/today`
-- `POST /api/water/event` — body: `{ "deltaLiters": 0.25 }`
-- `GET /api/water/recent?limit=20`
-- `POST /api/water/undo-last`
-- `GET /api/charts/daily?days=90&unit=lb`
-
-Weight and water are stored as append-only events; "today's value" and totals
-are derived from them, and undo removes the most recent event.
-
-## Architecture
-
-Hexagonal (ports & adapters):
-
-```
-cmd/vitals/            entry point: reads env, picks a store, wires services + HTTP server
-internal/
-  domain/                  entities and repository interfaces (stdlib only)
-  app/                     application services: validation and business logic
-  adapter/
-    http/                  driving adapter: routes, handlers, auth middleware
-    memory/                driven adapter: in-memory store (dev default)
-    sqlite/                driven adapter: SQLite store (durable storage)
-web/                       static frontend: HTML, CSS, vanilla JS
-```
-
-Storage is pluggable behind the `domain` repository interfaces, so the same
-`app` services run unchanged against either store; `main.go` picks one based
-on `SQLITE_PATH`. See [`docs/README.md`](docs/README.md) for the full
-documentation set, including the detailed architecture reference.
+Vitals follows hexagonal (ports & adapters) architecture: `internal/domain`
+holds entities and repository interfaces with zero external deps,
+`internal/app` holds validation and business logic, and
+`internal/adapter/http|memory|sqlite` implement the driving HTTP layer and
+the two interchangeable stores. `cmd/vitals/main.go` picks a store based on
+`SQLITE_PATH`, so the same `app` services run unchanged against either one.
+Weight and water are stored as append-only events; "today's value" and
+totals are derived from them, and undo removes the most recent event. See
+[`docs/README.md`](docs/README.md) for the full documentation set, including
+the architecture reference.
 
 ## Development
 
 ```bash
-make build   # compile ./vitals
-make test    # go test -race ./...
-make lint    # golangci-lint
-make all     # clean + lint + test + build
+golangci-lint run ./...
+go-arch-lint check
+make test
 ```
 
-CI additionally runs `go-arch-lint` to enforce the dependency rule that
-`domain` never imports `app` or `adapter`, and `app` never imports `adapter`.
+`make build` compiles the binary to `./vitals`; `make all` runs clean, lint,
+test and build. Conventions for contributors and agents:
+[AGENTS.md](AGENTS.md).
 
-## Container image
+## Deployment
 
-```bash
-docker build -t vitals .
-docker run -p 8080:8080 -e SQLITE_PATH=/data/vitals.db -v vitals-data:/data vitals
-```
+Runs on the homelab, staging and production, built and pushed to
+`ghcr.io/gjcourt/vitals` by `.github/workflows/image.yml` on every push to
+`master`. See [`gjcourt/homelab`](https://github.com/gjcourt/homelab)
+`apps/production/vitals/` and `apps/staging/vitals/` for the deployed
+manifests.
 
-`.github/workflows/image.yml` builds and pushes multi-arch images
-(`linux/amd64`, `linux/arm64`) to `ghcr.io/gjcourt/vitals` on every push to
-`master`.
+## License
+
+No licence file yet.
