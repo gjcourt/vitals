@@ -90,4 +90,4 @@ and the manifests under `apps/base/vitals/`, `apps/staging/vitals/`, and
 
 ## License
 
-[Apache-2.0](LICENSE).
+[Apache-2.0](LICENSE)
