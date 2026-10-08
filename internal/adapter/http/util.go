@@ -3,10 +3,12 @@ package adapthttp
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -57,6 +59,15 @@ func spaFromDisk(dir string) http.Handler {
 	indexPath := path.Join(dir, "index.html")
 	chartsPath := path.Join(dir, "charts.html")
 
+	// os.Root confines lookups to dir at the OS level (rejects ".." and
+	// symlink escapes), unlike path.Clean/path.Join which only normalize
+	// the request path lexically and don't stop it from resolving outside
+	// dir.
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		log.Fatalf("spaFromDisk: cannot open web dir %q: %v", dir, err)
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		reqPath := path.Clean(r.URL.Path)
 		if reqPath == "/" {
@@ -68,8 +79,7 @@ func spaFromDisk(dir string) http.Handler {
 			return
 		}
 
-		staticPath := path.Join(dir, reqPath)
-		if _, err := os.Stat(staticPath); err == nil {
+		if _, err := root.Stat(strings.TrimPrefix(reqPath, "/")); err == nil {
 			fileServer.ServeHTTP(w, r)
 			return
 		}
